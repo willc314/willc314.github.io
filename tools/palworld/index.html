@@ -120,6 +120,20 @@
   .tcard[aria-expanded=true] .alts{display:block}
   .alts .altlabel{display:block;font-family:var(--mono);font-size:10px;letter-spacing:.12em;
                   text-transform:uppercase;color:var(--muted);margin:0 0 8px}
+  .acts{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+  .act{background:var(--ink);color:var(--muted);border:1px solid var(--line);border-radius:3px;
+       padding:3px 9px;font-family:var(--mono);font-size:10px;letter-spacing:.1em;
+       text-transform:uppercase;cursor:pointer}
+  .act:hover{border-color:var(--amber);color:var(--amber)}
+  .actnote{font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;
+           color:var(--line);align-self:center}
+  .k-expanded > .tcard{border-left-color:#6bcb77;border-left-style:dashed}
+  #tweaks{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin:0 0 14px}
+  #tweaks:empty{display:none}
+  .tweaklbl{font-family:var(--mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;
+            color:var(--muted);margin-right:2px}
+  #tweakMsg{color:var(--amber);font-size:12px;margin:0 0 14px}
+  #tweakMsg:empty{display:none}
   .empty{border:1px dashed var(--line);border-radius:4px;padding:26px;color:var(--muted)}
   .empty b{color:var(--paper)}
   details{border-top:1px solid var(--line);padding-top:14px;margin-top:22px}
@@ -251,6 +265,8 @@
     </div>
     <div>
       <p class="verdict" id="verdict"></p>
+      <div id="tweaks"></div>
+      <p id="tweakMsg"></p>
       <div id="out"></div>
       <details id="finals">
         <summary>Every pair that makes this target directly</summary>
@@ -286,7 +302,7 @@
           <li><b>The passive list is 155 entries</b>, filtered from the skill table by dropping the
             gear and accessory variants. A few borderline ones may still be equipment-only rather than
             things a Pal can carry.</li>
-          <li><b>2 Pals have no breeding recipe at all</b> &mdash; Astralym, Panthalus. They sit outside the formula pool, no combo produces them, and they have no same-species row, so even a pair of them will not breed true. Catch-only in both directions.</li>
+          <li><b>1 Pal has no breeding recipe at all</b> &mdash; Panthalus. It sits outside the formula pool, no combo produces it, and it has no same-species row, so even a matched pair will not breed true. Catch-only in both directions.</li>
         </ul>
       </details>
       <footer>Numbers extracted from the shipped Palworld 1.0 data tables (DT_PalMonsterParameter, DT_PalCombiUnique). The 1.0 update rewrote the breeding table, so anything published before July 2026 will hand you pairs that no longer work.</footer>
@@ -301,7 +317,6 @@ Amione|2520|f|Water|40|
 Anubis|480|f|Ground||Earth Emperor
 Arsox|2320|f|Fire||
 Astegon|490|f|Dragon/Dark||Hard Skin
-Astralym|10|x|||
 Azurmane|420|f|Electric||
 Azurobe|1830|f|Water/Dragon||
 Azurobe Cryst|1220|sc|Ice/Dragon||
@@ -1439,7 +1454,7 @@ function chainTree(chain, base, rootKind){
     return {
       name: s.child, step: s,
       kind: s.kind === 'combo' ? 'combo' : (i === chain.length - 1 ? rootKind : 'spine'),
-      parents: [ build(i - 1), { name: s.mate, kind: 'partner' } ]
+      parents: [ build(i - 1), { name: s.mate, kind: 'partner', fixed: s.kind === 'combo' } ]
     };
   };
   return build(chain.length - 1);
@@ -1634,8 +1649,20 @@ function renderNode(node, ctx){
 
   if(k === 'origin')
     note = `<span class="tnote">Catch this &mdash; it is the only source of <b>${ctx.what}</b> in the plan.</span>`;
-  if(k === 'partner')
-    note = `<span class="tnote">Catch or breed &mdash; no passives needed.</span>`;
+  if(k === 'partner'){
+    note = `<span class="tnote">Catch it &mdash; no passives needed.</span>`;
+    const acts = [];
+    if(!node.fixed) acts.push(`<button class="act" data-sub="${node.name}">Substitute</button>`);
+    if(canExpand(node.name)) acts.push(`<button class="act" data-exp="${node.name}">Breed instead</button>`);
+    if(node.fixed) acts.push(`<span class="actnote">fixed pairing &mdash; no substitute</span>`);
+    if(acts.length) note += `<span class="acts">${acts.join('')}</span>`;
+  }
+  if(k === 'expanded'){
+    note = `<span class="tnote">Bred rather than caught${s
+      ? (s.kind === 'combo' ? ' &mdash; unique combo, rank ignored.'
+                            : `, averaging to ${avgOf(s.carrier, s.mate)}.`) : '.'}</span>`;
+    note += `<span class="acts"><button class="act" data-col="${node.name}">Just catch it</button></span>`;
+  }
   if(k === 'owned')
     note = `<span class="tnote">From your box${node.passives && node.passives.length
       ? `, carrying <b>${node.passives.join(', ')}</b>` : ', no passives'}.</span>`;
@@ -1663,10 +1690,108 @@ function renderTree(root, ctx){
   return `<div class="tree">${renderNode(root, ctx)}</div>`;
 }
 
+/* ---------------- substitute and expand ----------------
+   BANNED  — Pals struck out of the partner pool, so plans route around them.
+   EXPANDED — Pals shown as a breeding line instead of something you catch.
+*/
+let BANNED = new Set(), EXPANDED = new Set();
+
+/* every pair that produces this Pal, as data rather than display strings */
+function recipesFor(name){
+  const out = [];
+  COMBOS.forEach(k => { if(k.c === name && k.a !== k.b) out.push({ a:k.a, b:k.b, kind:'combo', g:k.g }); });
+  if(P[name] && P[name].formula){
+    const need = P[name].rank * 2;
+    for(let i = 0; i < NAMES.length; i++)
+      for(let j = i; j < NAMES.length; j++){
+        if(P[NAMES[i]].rank + P[NAMES[j]].rank !== need) continue;
+        const r = NEAREST[avgOf(NAMES[i], NAMES[j])];
+        if(r.name === name && !r.tie) out.push({ a:NAMES[i], b:NAMES[j], kind:'formula' });
+      }
+  }
+  return out.filter(r => r.a !== name && r.b !== name);
+}
+
+const RECIPE_CACHE = new Map();
+function bestRecipe(name){
+  const goal = $('target').value;
+  const key = name + '>' + goal;
+  if(RECIPE_CACHE.has(key)) return RECIPE_CACHE.get(key);
+  /* prefer recipes whose rarer parent is as common as possible, and avoid ones
+     that need the very Pal we're trying to produce */
+  const circular = r => (r.a === goal || r.b === goal) ? 1 : 0;
+  const list = recipesFor(name)
+    .filter(r => !BANNED.has(r.a) && !BANNED.has(r.b))
+    .sort((x, y) => circular(x) - circular(y)
+                 || Math.min(P[y.a].rank, P[y.b].rank) - Math.min(P[x.a].rank, P[x.b].rank)
+                 || (P[y.a].rank + P[y.b].rank) - (P[x.a].rank + P[x.b].rank));
+  const val = list[0] || null;
+  RECIPE_CACHE.set(key, val);
+  return val;
+}
+const canExpand = name => !!bestRecipe(name);
+
+function expandLeaf(name, seen){
+  const r = bestRecipe(name);
+  if(!r) return null;
+  const leaf = n => {
+    if(EXPANDED.has(n) && !seen.has(n)){
+      const sub = expandLeaf(n, new Set([...seen, n]));
+      if(sub) return sub;
+    }
+    return { name:n, kind:'partner', fixed: r.kind === 'combo' };
+  };
+  return {
+    name, kind:'expanded', expandedFrom:true,
+    step: { carrier:r.a, mate:r.b, child:name, kind:r.kind, g:r.g || '' },
+    parents: [ leaf(r.a), leaf(r.b) ]
+  };
+}
+
+/* swap catchable leaves for their breeding lines wherever the user asked */
+function applyExpansions(node){
+  if(!node) return node;
+  if(node.kind === 'partner' && EXPANDED.has(node.name)){
+    const ex = expandLeaf(node.name, new Set([node.name]));
+    if(ex) return ex;
+  }
+  if(node.parents) node.parents = node.parents.map(applyExpansions);
+  return node;
+}
+
+function substitute(name){
+  BANNED.add(name); RECIPE_CACHE.clear();
+  run();
+  if(!$('out').querySelector('.tnode')){
+    BANNED.delete(name); RECIPE_CACHE.clear();
+    run();
+    $('tweakMsg').textContent = `No route avoids ${name} with the current settings. Widen the partner pool or turn off Exact landings only, then try again.`;
+  }
+}
+
+function drawTweaks(){
+  const chips = [...BANNED].map(n =>
+      `<span class="chip rm" data-unban="${n}" title="Allow ${n} again">no ${n} &times;</span>`)
+    .concat([...EXPANDED].map(n =>
+      `<span class="chip rm want" data-unexp="${n}" title="Go back to catching ${n}">breeding ${n} &times;</span>`));
+  $('tweaks').innerHTML = chips.length
+    ? `<span class="tweaklbl">Adjustments</span>${chips.join('')}` : '';
+  $('tweaks').querySelectorAll('[data-unban]').forEach(c => c.onclick = () => {
+    BANNED.delete(c.dataset.unban); RECIPE_CACHE.clear(); run(); });
+  $('tweaks').querySelectorAll('[data-unexp]').forEach(c => c.onclick = () => {
+    EXPANDED.delete(c.dataset.unexp); run(); });
+}
+
 function bindGens(){
   $('out').querySelectorAll('button.tcard').forEach(b => {
     b.onclick = () => b.setAttribute('aria-expanded', b.getAttribute('aria-expanded') !== 'true');
   });
+  $('out').querySelectorAll('[data-sub]').forEach(b => b.onclick = e => {
+    e.stopPropagation(); substitute(b.dataset.sub); });
+  $('out').querySelectorAll('[data-exp]').forEach(b => b.onclick = e => {
+    e.stopPropagation(); EXPANDED.add(b.dataset.exp); run(); });
+  $('out').querySelectorAll('[data-col]').forEach(b => b.onclick = e => {
+    e.stopPropagation(); EXPANDED.delete(b.dataset.col); run(); });
 }
 
 /* dots for every rank on the spine, converging on the target */
@@ -1693,9 +1818,11 @@ function runRoster(){
   const target = $('target').value;
   const exactOnly = $('exactOnly').checked, useCombos = $('useCombos').checked;
   const minRank = +$('pool').value;
-  const pool = NAMES.filter(n => P[n].rank >= minRank && !($('noCollab').checked && COLLAB.has(n)))
+  const pool = NAMES.filter(n => P[n].rank >= minRank && !BANNED.has(n)
+                            && !($('noCollab').checked && COLLAB.has(n)))
                     .sort((a, b) => P[b].rank - P[a].rank);
   CHAIN_CACHE.clear();
+  drawTweaks();
   $('finals').hidden = true;
 
   const missing = [];
@@ -1754,7 +1881,7 @@ function runRoster(){
   });
 
   const root = joinTrees(r.steps, target, WANTS);
-  let html = treeLegend(true) + renderTree(root, { what: listJoin(WANTS, 'and') });
+  let html = treeLegend(true) + renderTree(applyExpansions(root), { what: listJoin(WANTS, 'and') });
 
   const allJunk = [];
   carried.forEach(c => c.junk.forEach(p => { if(!allJunk.includes(p)) allJunk.push(p); }));
@@ -1810,6 +1937,7 @@ function loadExample(){
 
 function run(){
   saveState();
+  drawTweaks();
   if(mode === 'box'){ runRoster(); return; }
   const target = $('target').value;
   const trait = $('trait').value;
@@ -1828,7 +1956,8 @@ function run(){
   const exactOnly = $('exactOnly').checked;
   const useCombos = $('useCombos').checked;
   const minRank = +$('pool').value;
-  const pool = NAMES.filter(n => P[n].rank >= minRank && !($('noCollab').checked && COLLAB.has(n)))
+  const pool = NAMES.filter(n => P[n].rank >= minRank && !BANNED.has(n)
+                            && !($('noCollab').checked && COLLAB.has(n)))
                     .sort((a, b) => P[b].rank - P[a].rank);
   const origins = mode === 'trait' ? TRAITS[trait].holders : ORIGINS.slice();
   const what = mode === 'trait' ? trait
@@ -1872,7 +2001,7 @@ function run(){
     $('verdict').innerHTML = `Combining <b>${listJoin(origins, 'and')}</b> into ` +
       `<b>${target}</b> &middot; ${c.gens} generation${c.gens === 1 ? '' : 's'}`;
     $('out').innerHTML = treeLegend(false) +
-      renderTree(c.tree, { what: 'the passives you want' });
+      renderTree(applyExpansions(c.tree), { what: 'the passives you want' });
     bindGens();
     return;
   }
@@ -1921,14 +2050,14 @@ function run(){
       <span class="pairgrid" style="margin-top:8px">${rows}</span></div>`;
   }
   html += spineBar(spine, goal) + treeLegend(false) +
-    renderTree(root, { what: mode === 'trait' ? what : `${bestOrigin}'s passives` });
+    renderTree(applyExpansions(root), { what: mode === 'trait' ? what : `${bestOrigin}'s passives` });
 
   $('out').innerHTML = html;
   bindGens();
 }
 
 ['trait','target','pool','useCombos','noCollab','exactOnly','combineOn']
-  .forEach(id => $(id).onchange = run);
+  .forEach(id => $(id).onchange = () => { $('tweakMsg').textContent = ''; RECIPE_CACHE.clear(); run(); });
 $('combineOn').addEventListener('change', drawOrigins);
 $('go').onclick = run;
 
@@ -1958,6 +2087,7 @@ function saveState(){
     localStorage.setItem(LS_KEY, JSON.stringify({
       v:1, mode, trait:$('trait').value, target:$('target').value,
       origins:ORIGINS, roster:ROSTER, wants:WANTS,
+      banned:[...BANNED], expanded:[...EXPANDED],
       combine:$('combineOn').checked, pool:$('pool').value,
       useCombos:$('useCombos').checked, noCollab:$('noCollab').checked,
       exactOnly:$('exactOnly').checked
@@ -1980,6 +2110,8 @@ function restoreState(){
   if(d.target && P[d.target]) $('target').value = d.target;
   if(d.pool) $('pool').value = d.pool;
   ORIGINS = (Array.isArray(d.origins) ? d.origins : []).filter(n => P[n]);
+  BANNED = new Set((Array.isArray(d.banned) ? d.banned : []).filter(n => P[n]));
+  EXPANDED = new Set((Array.isArray(d.expanded) ? d.expanded : []).filter(n => P[n]));
   WANTS = (Array.isArray(d.wants) ? d.wants : []).filter(p => PASSIVES[p]).slice(0, 4);
   ROSTER = (Array.isArray(d.roster) ? d.roster : []).filter(r => r && P[r.species])
     .map(r => ({ species:r.species,
