@@ -1,0 +1,2007 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Palworld Breeding Calculator</title>
+<style>
+  :root{
+    --ink:#0d141c; --slab:#151f2b; --slab2:#1b2836; --line:#27384a; --line-soft:#1f2e3e;
+    --paper:#e6edf4; --muted:#8296ab; --amber:#f5b32d; --amber-dim:#7d6021; --violet:#b06bff;
+    --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+    --sans: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    --spectral: linear-gradient(90deg,#ff6b6b,#f5b32d,#6bcb77,#4d96ff,#b06bff);
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{background:var(--ink);color:var(--paper);font-family:var(--sans);font-size:15px;
+       line-height:1.5;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:1140px;margin:0 auto;padding:28px 20px 72px}
+  .masthead{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:10px 24px}
+  h1{font-size:clamp(25px,4vw,38px);line-height:1.05;letter-spacing:-.028em;font-weight:800;margin:0}
+  h1 .rainbow{background:var(--spectral);-webkit-background-clip:text;background-clip:text;color:transparent}
+  .meta{display:flex;flex-wrap:wrap;gap:6px 8px;margin:0;font-family:var(--mono);font-size:10px;
+        letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+  .meta span{border:1px solid var(--line-soft);border-radius:2px;padding:2px 7px}
+  .rule{height:2px;background:var(--spectral);opacity:.5;margin:18px 0 26px;border-radius:2px}
+  .cols{display:grid;grid-template-columns:308px 1fr;gap:28px;align-items:start}
+  @media(max-width:820px){.cols{grid-template-columns:1fr}}
+  .panel{background:var(--slab);border:1px solid var(--line);border-radius:5px;padding:17px 18px}
+  .panel + .panel{margin-top:18px}
+  .panel h2{font-family:var(--mono);font-size:10px;letter-spacing:.2em;text-transform:uppercase;
+            color:var(--muted);margin:0 0 14px;font-weight:500;padding-bottom:9px;
+            border-bottom:1px solid var(--line-soft)}
+  .field{margin-bottom:16px}
+  .field:last-child{margin-bottom:0}
+  label{display:block;font-family:var(--mono);font-size:11px;letter-spacing:.1em;
+        text-transform:uppercase;color:var(--muted);margin-bottom:6px}
+  select{width:100%;background:var(--ink);color:var(--paper);border:1px solid var(--line);
+         border-radius:4px;padding:9px 10px;font-family:var(--sans);font-size:14px}
+  select:hover{border-color:var(--muted)}
+  select:focus-visible,button:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+  .modes{display:flex;margin-bottom:16px;background:var(--ink);border:1px solid var(--line);
+         border-radius:4px;overflow:hidden}
+  .modes button{flex:1;background:transparent;color:var(--muted);border:0;padding:10px 4px;cursor:pointer;
+                font-family:var(--mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase}
+  .modes button + button{border-left:1px solid var(--line-soft)}
+  .modes button:hover{color:var(--paper)}
+  .modes button[aria-pressed=true]{background:var(--slab2);color:var(--paper);box-shadow:inset 0 -2px 0 var(--amber)}
+  .check{display:flex;gap:9px;align-items:flex-start;font-size:13px;color:var(--muted);margin-top:10px}
+  .check input{margin:3px 0 0;accent-color:var(--amber)}
+  button.go{width:100%;margin-top:18px;background:var(--amber);color:#20180a;border:0;border-radius:4px;
+            padding:12px;font-family:var(--mono);font-size:11px;letter-spacing:.16em;
+            text-transform:uppercase;font-weight:700;cursor:pointer}
+  button.go:hover{filter:brightness(1.08)}
+  .sources{font-size:13px;color:var(--muted);margin-top:12px}
+  .chip{display:inline-block;font-family:var(--mono);font-size:11px;padding:2px 7px;border-radius:2px;
+        background:var(--slab2);border:1px solid var(--line);margin:3px 4px 0 0;color:var(--paper)}
+  .el{display:inline-block;font-family:var(--mono);font-size:10px;letter-spacing:.08em;
+      text-transform:uppercase;color:var(--muted);border:1px solid var(--line-soft);
+      border-radius:2px;padding:1px 5px;margin-left:6px}
+  .verdict{font-family:var(--mono);font-size:11px;letter-spacing:.13em;text-transform:uppercase;
+           color:var(--muted);margin:0 0 16px;padding-bottom:12px;border-bottom:1px solid var(--line-soft)}
+  .verdict b{color:var(--amber)}
+  .tree{margin:0}
+  .tnode{position:relative}
+  .tkids{margin-left:15px}
+  .tkids > .tnode{padding-left:19px;margin-top:7px}
+  .tkids > .tnode::before{content:'';position:absolute;left:0;top:-7px;bottom:0;width:1px;background:var(--line)}
+  .tkids > .tnode:last-child::before{bottom:auto;height:25px}
+  .tkids > .tnode::after{content:'';position:absolute;left:0;top:18px;width:14px;height:1px;background:var(--line)}
+  @media(max-width:600px){.tkids{margin-left:8px}.tkids > .tnode{padding-left:13px}
+    .tkids > .tnode::after{width:9px}}
+
+  .tcard{display:block;width:100%;text-align:left;font:inherit;color:inherit;background:var(--slab);
+         border:1px solid var(--line);border-left:3px solid var(--line);border-radius:4px;
+         padding:10px 13px;cursor:default}
+  button.tcard{cursor:pointer}
+  button.tcard:hover{background:var(--slab2)}
+  .tcard[aria-expanded=true]{background:var(--slab2)}
+  .k-root > .tcard{border-left-color:var(--paper);border-color:var(--line)}
+  .k-spine > .tcard,.k-group > .tcard{border-left-color:var(--amber)}
+  .k-combo > .tcard{border-left-color:var(--violet);border-left-style:dashed}
+  .k-partner > .tcard{border-left-color:var(--line-soft);background:transparent}
+  .k-origin > .tcard{border-left-color:transparent;background:var(--slab2);position:relative;overflow:hidden}
+  .k-origin > .tcard::before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--spectral)}
+  .k-owned > .tcard{border-left-color:#6bcb77;background:var(--slab2)}
+  .k-join > .tcard,.k-merge > .tcard,.k-meet > .tcard{border-left-color:var(--violet)}
+  .k-root > .tcard{border-left-color:var(--paper)}
+
+  .thead{display:flex;flex-wrap:wrap;gap:8px;align-items:baseline}
+  .twho{font-size:15px;font-weight:700;letter-spacing:-.01em}
+  .k-root .twho{font-size:17px}
+  .k-partner .twho{font-weight:500;color:var(--muted)}
+  .rank{font-family:var(--mono);font-size:11px;color:var(--muted)}
+  .rank.warn{color:var(--amber)}
+  .rank.uni{color:var(--violet)}
+  .tnote{display:block;font-size:12px;color:var(--muted);margin-top:3px}
+  .tnote b{color:var(--paper);font-weight:600}
+  .pool{display:block;font-family:var(--mono);font-size:11px;color:var(--muted);margin-top:3px}
+  .pool b{color:#6bcb77;font-weight:400}
+  .legend{display:flex;flex-wrap:wrap;gap:14px;font-size:11px;font-family:var(--mono);
+          color:var(--muted);margin:0 0 14px;letter-spacing:.04em}
+  .legend i{display:inline-block;width:16px;height:2px;vertical-align:middle;margin-right:5px;font-style:normal}
+  .scale{display:flex;justify-content:space-between;font-family:var(--mono);font-size:10px;
+         letter-spacing:.08em;color:var(--muted);margin-top:2px}
+  .gauge{display:block;position:relative;height:14px;margin-top:9px}
+  .gauge .track{position:absolute;top:6px;left:0;right:0;height:1px;background:var(--line)}
+  .gauge .goal{position:absolute;top:0;width:1px;height:13px;background:var(--amber-dim)}
+  .gauge .dot{position:absolute;top:1px;width:11px;height:11px;margin-left:-5.5px;border-radius:50%;
+              background:var(--amber);border:2px solid var(--ink)}
+  .gauge .dot.spectral{background:var(--violet)}
+  .gauge .ghost{position:absolute;top:4.5px;width:5px;height:5px;margin-left:-2.5px;border-radius:50%;
+                background:var(--line)}
+  .spine{background:var(--slab);border:1px solid var(--line);border-radius:3px;padding:11px 14px;margin-bottom:14px}
+  .spine .lbl{font-family:var(--mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+  .alts{display:none;margin-top:10px;padding-top:9px;border-top:1px dashed var(--line-soft)}
+  .tcard[aria-expanded=true] .alts{display:block}
+  .alts .altlabel{display:block;font-family:var(--mono);font-size:10px;letter-spacing:.12em;
+                  text-transform:uppercase;color:var(--muted);margin:0 0 8px}
+  .empty{border:1px dashed var(--line);border-radius:4px;padding:26px;color:var(--muted)}
+  .empty b{color:var(--paper)}
+  details{border-top:1px solid var(--line);padding-top:14px;margin-top:22px}
+  summary{cursor:pointer;font-family:var(--mono);font-size:11px;letter-spacing:.14em;
+          text-transform:uppercase;color:var(--muted)}
+  summary:hover{color:var(--paper)}
+  details ul{margin:12px 0 0;padding-left:18px;color:var(--muted);font-size:14px}
+  details li{margin-bottom:8px}
+  details b{color:var(--paper)}
+  .pairgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:6px;margin-top:12px;
+            font-family:var(--mono);font-size:12px;color:var(--muted)}
+  .pairgrid span{background:var(--slab);border:1px solid var(--line-soft);border-radius:2px;padding:6px 8px}
+  footer{color:var(--muted);font-size:12px;margin-top:40px;border-top:1px solid var(--line);padding-top:16px}
+  .rrow{border:1px solid var(--line-soft);border-radius:3px;padding:9px 10px;margin-bottom:8px;background:var(--ink)}
+  .rtop{display:flex;align-items:center;gap:8px}
+  .rname{flex:1;font-weight:700;font-size:14px}
+  .xbtn{background:none;border:0;color:var(--muted);cursor:pointer;font-size:16px;line-height:1;padding:0 3px}
+  .xbtn:hover{color:var(--amber)}
+  .chip.rm{cursor:pointer}
+  .chip.rm:hover{border-color:var(--amber);color:var(--amber)}
+  .chip.want{border-color:var(--amber-dim)}
+  .miniadd{width:100%;margin-top:7px;background:var(--slab);color:var(--muted);border:1px dashed var(--line);
+           border-radius:3px;padding:5px 7px;font-family:var(--sans);font-size:12px}
+  .hint{font-size:12px;color:var(--muted);margin:8px 0 0}
+  .iorow{display:flex;gap:8px}
+  .iobtn{flex:1;background:var(--ink);color:var(--paper);border:1px solid var(--line);border-radius:3px;
+         padding:8px 6px;font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;
+         cursor:pointer}
+  .iobtn:hover{border-color:var(--amber);color:var(--amber)}
+  .iobtn.wide{width:100%;margin-top:7px}
+  #ioText{width:100%;margin-top:9px;background:var(--ink);color:var(--paper);border:1px solid var(--line);
+          border-radius:3px;padding:8px;font-family:var(--mono);font-size:11px;resize:vertical}
+  .parthead{font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;
+            color:var(--paper);margin:22px 0 10px;display:flex;gap:10px;align-items:baseline}
+  .parthead:first-child{margin-top:0}
+  .parthead span{color:var(--muted);letter-spacing:.06em;text-transform:none;font-size:12px}
+  .merge{background:var(--slab);border:1px solid var(--line);border-left:2px solid var(--violet);
+         border-radius:3px;padding:12px 16px;margin-bottom:10px;font-size:13px}
+  .merge b{color:var(--paper)}
+  .merge .out{display:block;margin-top:5px;color:var(--muted)}
+  .warnbox{border:1px solid var(--amber-dim);background:rgba(245,179,45,.06);border-radius:3px;
+           padding:12px 14px;margin:14px 0;font-size:13px;color:var(--paper)}
+  .warnbox b{color:var(--amber)}
+  @media (prefers-reduced-motion:no-preference){.gen{transition:background .14s ease,border-color .14s ease}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="masthead">
+    <h1>Palworld <span class="rainbow">Breeding</span> Calculator</h1>
+    <p class="meta"><span>1.0 data</span><span>299 Pals</span><span>251 unique combos</span><span>155 passives</span></p>
+  </header>
+  <div class="rule"></div>
+  <div class="cols">
+    <div>
+      <div class="panel">
+        <h2>Start from</h2>
+        <div class="modes" role="group" aria-label="How to pick the starting Pal">
+          <button id="mTrait" aria-pressed="true">A passive</button>
+          <button id="mPal" aria-pressed="false">Pal</button>
+          <button id="mBox" aria-pressed="false">My box</button>
+        </div>
+        <div class="field" id="traitField">
+          <label for="trait">Innate passive</label>
+          <select id="trait"></select>
+          <div class="sources" id="traitSources"></div>
+        </div>
+        <div class="field" id="palField" hidden>
+          <label for="addOrigin">Starting Pals</label>
+          <div id="origins"></div>
+          <select id="addOrigin"></select>
+          <label class="check" id="combineWrap" hidden><input type="checkbox" id="combineOn" checked>
+            Combine them &mdash; breed every line together so one Pal ends up with everything</label>
+          <p class="hint" id="originHint">Add as many as you like.</p>
+        </div>
+        <div class="field" id="boxField" hidden>
+          <label for="addPal">Pals you own, and what they carry</label>
+          <div id="roster"></div>
+          <select id="addPal"></select>
+          <p class="hint">Add a Pal, then give it the passives it already has. Only the passives you're
+            asking for matter — extras are treated as pool clutter.</p>
+        </div>
+      </div>
+      <div class="panel">
+        <h2>End on</h2>
+        <div class="field">
+          <label for="target">Target Pal</label>
+          <select id="target"></select>
+        </div>
+        <div class="field" id="wantField" hidden>
+          <label for="addWant">Passives you want on it (max 4)</label>
+          <div id="wants"></div>
+          <select id="addWant"></select>
+        </div>
+        <div class="field">
+          <label for="pool">Partners you're willing to catch</label>
+          <select id="pool">
+            <option value="2400">Common only — trash-tier, easy to farm</option>
+            <option value="1500">Common and mid-tier</option>
+            <option value="0" selected>Anything catchable</option>
+          </select>
+        </div>
+        <label class="check"><input type="checkbox" id="useCombos" checked> Allow unique combos — the 251 fixed pairings, and the only route to any subspecies</label>
+        <label class="check"><input type="checkbox" id="noCollab" checked> Skip the Terraria collab Pals</label>
+        <label class="check"><input type="checkbox" id="exactOnly" checked> Exact landings only — no rounding, no ties</label>
+        <button class="go" id="go">Plan the chain</button>
+      </div>
+
+      <div class="panel">
+        <h2>This browser</h2>
+        <label class="check"><input type="checkbox" id="incognitoOn">
+          Incognito &mdash; don't save anything</label>
+        <p class="hint" id="privacyNote"></p>
+      </div>
+
+      <div class="panel" id="ioPanel" hidden>
+        <h2>Save your box</h2>
+        <div class="iorow">
+          <button class="iobtn" id="ioSave">Download</button>
+          <button class="iobtn" id="ioLoad">Load a file</button>
+        </div>
+        <input type="file" id="ioFile" accept=".json,application/json" hidden>
+        <p class="hint" id="ioMsg">Keeps your Pals, their passives, and the target in one file.</p>
+        <div id="ioWrap" hidden>
+          <textarea id="ioText" rows="5" spellcheck="false"></textarea>
+          <button class="iobtn wide" id="ioPaste">Load from the text above</button>
+        </div>
+      </div>
+    </div>
+    <div>
+      <p class="verdict" id="verdict"></p>
+      <div id="out"></div>
+      <details id="finals">
+        <summary>Every pair that makes this target directly</summary>
+        <div class="pairgrid" id="finalPairs"></div>
+      </details>
+      <details>
+        <summary>How to actually land the passive</summary>
+        <ul>
+          <li><b>Only one child per generation matters.</b> You need an offspring that is both the right species and carrying the passive. Everything else goes in the box.</li>
+          <li><b>Put the carrier in as the male.</b> Game8's 100-egg test came out at 24% inheritance from the father against 20% from the mother, with 34% of eggs inheriting nothing.</li>
+          <li><b>Pair it with a mate that has zero passives.</b> Junk traits compete for the four slots and drag your rate down hard.</li>
+          <li><b>Feed Special Cake.</b> It raises the chance of passing parents' passives down. Avoid Extravagant Vegetable Cake — it pushes mutations, and a mutated egg is always a different species than the parents would normally make.</li>
+          <li><b>Two of the same species always breed that species.</b> Once one target Pal has the passive, pair it with a plain one of its own kind and reroll the other three slots forever without risking the species again.</li>
+          <li><b>Watch the gender odds.</b> A few Pals are lopsided — Bellanoir is 5% male, Beegarde and Elizabee 10%, Dazzi and Mozzarina 20%. Those rows get flagged in the chain.</li>
+        </ul>
+      </details>
+      <details>
+        <summary>What this tool knows and doesn't</summary>
+        <ul>
+          <li>Species is decided by <b>floor((rankA + rankB + 1) / 2)</b>, then the closest Pal to that number. Low rank means rare — Aegidron sits at 30, Chikipi at 3080.</li>
+          <li><b>Only 183 of the 299 Pals can come out of that formula.</b> The other 116 are exactly the ones the combo table gives an explicit same-species row to &mdash; most elemental subspecies, plus legendaries and tower and raid bosses. Those rows exist <i>because</i> the formula can no longer produce those Pals: without one, breeding two of them together would hand you something else entirely. All 114 rows check out as necessary, which is what pins the rule down. Three subspecies &mdash; Kelpsea Ignis, Shroomer Noct and Wumpo Botan &mdash; have no such row, and that is because they don’t need one: they never left the formula pool, so they breed normally and make themselves.</li>
+          <li><b>Unique combos</b> are the 251 fixed pairings that ignore rank entirely. Two are gender-dependent: Katress × Wixen gives Wixen Noct or Katress Ignis depending on which parent is female.</li>
+          <li><b>Ties are not resolved here.</b> 179 of the possible averages sit exactly between two candidates, and the data table offers nothing to break them — every formula-eligible Pal's priority value is just its rank, so it carries no extra information. Those steps get flagged with both candidates named, and <i>Exact landings only</i> (on by default) avoids them entirely.</li>
+          <li><b>The tree reads top-down.</b> The finished Pal is at the top; the two Pals directly
+            beneath it are its parents, and so on down. Anything with nothing beneath it is a leaf you
+            catch or already own. Cards with a highlighted border are the line carrying your passive.</li>
+          <li><b>My box counts generations, not eggs.</b> Every row is one successful hatch; how many eggs
+            that takes is a dice roll the tool doesn't model. It finds the plan with the fewest hatches by
+            merging same-species carriers first (species-safe, so it's free of risk), chaining each group
+            to the target once, then joining at the end. It does <i>not</i> try breeding two different-species
+            carriers into some intermediate species &mdash; that could occasionally be shorter, so treat the
+            number as an upper bound.</li>
+          <li><b>The passive list is 155 entries</b>, filtered from the skill table by dropping the
+            gear and accessory variants. A few borderline ones may still be equipment-only rather than
+            things a Pal can carry.</li>
+          <li><b>2 Pals have no breeding recipe at all</b> &mdash; Astralym, Panthalus. They sit outside the formula pool, no combo produces them, and they have no same-species row, so even a pair of them will not breed true. Catch-only in both directions.</li>
+        </ul>
+      </details>
+      <footer>Numbers extracted from the shipped Palworld 1.0 data tables (DT_PalMonsterParameter, DT_PalCombiUnique). The 1.0 update rewrote the breeding table, so anything published before July 2026 will hand you pairs that no longer work.</footer>
+    </div>
+  </div>
+</div>
+
+<script>
+/* name|rank|flags|elements|malePct(blank=50)|innate    flags: f=formula-eligible s=subspecies c=combo-child x=no recipe */
+const PAL_DATA = `Aegidron|30|f|Dragon/Ground||Heavyweight
+Amione|2520|f|Water|40|
+Anubis|480|f|Ground||Earth Emperor
+Arsox|2320|f|Fire||
+Astegon|490|f|Dragon/Dark||Hard Skin
+Astralym|10|x|||
+Azurmane|420|f|Electric||
+Azurobe|1830|f|Water/Dragon||
+Azurobe Cryst|1220|sc|Ice/Dragon||
+Bakemi|1540|f|Dark|40|
+Bastigor|50|c|Ice|60|
+Beakon|1690|f|Electric||
+Beakon Cryst|580|sc|Ice||
+Beegarde|2350|f|Grass|10|
+Bellanoir|620|c|Dark|10|
+Bellanoir Libero|130|sc|Dark|10|Siren of the Void
+Blazamut|410|f|Fire||Flame Emperor
+Blazamut Ryu|100|sc|Dragon/Fire||Eternal Flame
+Blazehowl|1360|f|Fire||
+Blazehowl Noct|1270|sc|Fire/Dark||
+Blue Slime|3100|c|||
+Braloha|1030|f|Grass/Ground||Heavyweight
+Bristla|2690|f|Grass||
+Broncherry|1380|f|Grass||Heavyweight
+Broncherry Aqua|1080|sc|Grass/Water||Heavyweight
+Bulldosu|1190|f|Ground||
+Bushi|1560|f|Fire||
+Bushi Noct|840|sc|Fire/Dark||
+Caprity|2610|f|Grass||
+Caprity Noct|1940|sc|Dark||
+Carnibora|1700|f|Grass|40|
+Cattiva|2760|f|Neutral||Coward
+Cave Bat|3100|c|||
+Cawgnito|2370|f|Dark||
+Celaray|2740|f|Water||
+Celaray Lux|2380|sc|Water/Electric||
+Celesdir|570|c|Neutral||
+Celesdir Noct|270|sc|Dark||
+Chikipi|3080|f|Neutral||
+Chillet|2330|f|Ice/Dragon||
+Chillet Ignis|1950|sc|Fire/Dragon||
+Cinnamoth|2620|f|Grass||
+Clovee|2970|f|Grass/Neutral||
+Cremis|2890|f|Neutral||
+Croajiro|2600|f|Water||
+Croajiro Noct|1860|sc|Water/Dark||
+Cryolinx|1040|f|Ice||
+Cryolinx Terra|470|sc|Ground||
+Daedream|2910|f|Dark||
+Dandilord|60|c|Grass/Dark|60|
+Dazemu|2210|f|Ground||
+Dazzi|2400|f|Electric|20|
+Dazzi Noct|1910|sc|Dark/Electric|20|
+Demon Eye|3100|c|||
+Depresso|3000|f|Dark||
+Digtoise|1550|f|Ground||Hard Skin
+Dinossom|2100|f|Grass/Dragon||
+Dinossom Lux|1890|sc|Electric/Dragon||
+Direhowl|2680|f|Neutral||
+Dogen|1460|f|Neutral||
+Dualith|510|f|Ground/Grass||Heavyweight
+Dualith Noct|250|sc|Ground/Dark||Heavyweight
+Dumud|2290|f|Ground/Water||
+Dumud Gild|1620|sc|Ground/Water||
+Dupin|520|f|Fire||
+Dynamoff|1400|f|Electric||
+Eidrolon|300|f|Dragon/Dark||
+Eidrolon Ignis|140|sc|Dragon/Fire||
+Eikthyrdeer|2710|f|Neutral||
+Eikthyrdeer Terra|2580|sc|Ground||
+Elgrove|2020|f|Grass|60|
+Elgrove Cryst|440|sc|Ice|60|
+Elizabee|1790|f|Grass|10|
+Elphidran|2280|f|Dragon||
+Elphidran Aqua|1640|sc|Dragon/Water||
+Enchanted Sword|3100|c|||
+Eye of Cthulhu|3100|c|||
+Faleris|500|c|Fire||
+Faleris Aqua|450|sc|Water||
+Felbat|1570|f|Dark||
+Fenglope|1960|f|Neutral||
+Fenglope Lux|900|sc|Electric||
+Finsider|2450|f|Water||
+Finsider Ignis|2240|sc|Water/Fire||
+Flambelle|2700|f|Fire||
+Flaracle|390|f|Fire||
+Flopie|2660|f|Grass||
+Foxcicle|1970|f|Ice||
+Foxparks|2990|f|Fire||
+Foxparks Cryst|2500|sc|Ice||
+Frostallion|150|c|Ice||Legend/Ice Emperor
+Frostallion Noct|110|sc|Dark||Legend/Lord of the Underworld
+Frostplume|860|f|Ice||
+Fuack|2980|f|Water||
+Fuack Ignis|2300|sc|Water/Fire||
+Fuddler|2790|f|Ground||
+Galeclaw|2570|f|Neutral||
+Ghangler|880|f|Dark/Water||
+Ghangler Ignis|720|sc|Fire/Water||
+Gildane|730|f|Ground||
+Gildra|1170|f|Dark/Ground||
+Gloopie|2530|f|Water/Dark||
+Gloopie Primo|1630|sc|Water/Neutral||
+Gobfin|2550|f|Water||
+Gobfin Ignis|2430|sc|Fire||
+Gorirat|2140|f|Neutral||Hooligan
+Gorirat Terra|1880|sc|Ground||Hooligan
+Green Slime|3100|c|||
+Grintale|2120|f|Neutral||
+Grizzbolt|1020|c|Electric||
+Gumoss|2950|f|Grass/Ground||
+Hangyu|2780|f|Ground||
+Hangyu Cryst|2510|sc|Ice||
+Hartalis|90|c|Neutral||Savior
+Helzephyr|1130|f|Dark||
+Helzephyr Lux|960|sc|Dark/Electric||
+Herbil|2630|f|Grass/Neutral||
+Hoocrates|2940|f|Dark||
+Hoodle|1770|f|Dark||
+Icelyn|1260|f|Ice||
+Illuminant Bat|3100|c|||
+Illuminant Slime|3100|c|||
+Incineram|1470|f|Fire/Dark||
+Incineram Noct|1310|sc|Dark||
+Jelliette|2650|f|Water||
+Jellroy|2590|f|Water/Dark||
+Jetragon|70|c|Dragon||Legend/Divine Dragon
+Jolthog|3030|f|Electric||
+Jolthog Cryst|2850|sc|Ice||
+Jormuntide|590|f|Dragon/Water||Lord of the Sea
+Jormuntide Ignis|170|sc|Dragon/Fire||
+Katress|2040|f|Dark||
+Katress Ignis|1800|sc|Dark/Fire||
+Kelpsea|2810|f|Water||
+Kelpsea Ignis|2470|fs|Fire||
+Kikit|2310|f|Ground||
+Killamari|2770|f|Dark/Water||
+Killamari Primo|2540|sc|Neutral/Water||
+Kingpaca|2220|f|Neutral|90|Heavyweight
+Kingpaca Cryst|1530|sc|Ice|90|Heavyweight
+Kitsun|1670|f|Fire||
+Kitsun Noct|800|sc|Dark||
+Knocklem|260|f|Ground|70|Heavyweight
+Knocklem Ignis|210|sc|Fire|70|Heavyweight
+Lamball|3050|f|Neutral||
+Lapiron|1680|f|Ground||
+Lapure|810|f|Neutral|40|
+Leafan|1410|f|Grass|40|
+Leezpunk|2670|f|Dark||
+Leezpunk Ignis|2640|sc|Fire||
+Lifmunk|3020|f|Grass||
+Loomen|890|f|Dark/Fire||
+Loupmoon|2110|f|Dark||
+Loupmoon Cryst|1290|sc|Ice||
+Lovander|2090|f|Dark|30|Abnormal
+Lullu|1990|f|Grass|30|
+Lunaris|2010|f|Neutral||
+Lyleen|240|c|Grass|30|Spirit Emperor
+Lyleen Noct|220|sc|Dark|30|
+Majex|1010|f|Dark/Fire|40|
+Mammorest|1340|f|Grass/Ground||Heavyweight
+Mammorest Cryst|1070|sc|Ice/Ground||Heavyweight
+Maraith|1710|f|Dark||
+Mau|3040|f|Dark||
+Mau Cryst|2750|sc|Ice||
+Melpaca|2720|f|Neutral||
+Menasting|1120|f|Dark/Ground||
+Menasting Terra|640|sc|Ground||
+Mimog|1740|c|Neutral|80|
+Moldron|750|f|Fire/Ground||
+Moldron Cryst|380|sc|Ice/Ground||
+Mossanda|2060|f|Grass||
+Mossanda Lux|1440|sc|Electric||
+Mozzarina|2800|f|Neutral|20|
+Muffly|2480|f|Ice||
+Munchill|2130|f|Ice/Water||
+Mycora|760|f|Grass|30|
+Necromus|190|c|Dark||Legend/Lord of the Underworld
+Needoll|2420|f|Grass||
+Needoll Noct|1580|sc|Dark/Grass||
+Neptilius|160|c|Water||Legend/Lunker
+Nitemary|1230|f|Dark|40|
+Nitemary Botan|1320|sc|Grass|40|
+Nitewing|2560|f|Neutral||
+Nox|2920|f|Dark||
+Nyafia|1250|f|Dark|40|
+Omascul|1140|f|Dark||
+Ophydia|230|f|Grass/Water||
+Orserk|120|c|Dragon/Electric||Lord of Lightning
+Paladius|180|c|Neutral||Legend/Celestial Emperor
+Palumba|1240|f|Grass||
+Panthalus|20|x|Water||Legend
+Pengullet|2960|f|Water/Ice||
+Pengullet Lux|2490|sc|Water/Electric||
+Penking|2070|f|Water/Ice||
+Penking Lux|1850|sc|Water/Electric||
+Petallia|1720|f|Grass||
+Petallia Ignis|820|sc|Grass/Fire||
+Pierdon|1110|f|Ground||Heavyweight
+Pierdon Cryst|460|sc|Ice||Heavyweight
+Polapup|1660|f|Ice/Water||
+Polapup Terra|1100|sc|Ice/Ground||
+Prixter|1510|f|Dark/Ground||
+Prixter Lux|850|sc|Electric/Ground||
+Prunelia|1390|f|Grass/Dark|40|
+Puffolt|2360|f|Electric||
+Pupperai|2930|f|Ground||
+Purple Slime|3100|c|||
+Pyrin|1980|f|Fire||
+Pyrin Noct|1870|sc|Fire/Dark||
+Quivern|1210|f|Dragon||
+Quivern Botan|1300|sc|Dragon/Grass||
+Ragnahawk|1050|f|Fire||
+Rainbow Slime|3100|c|||
+Rayhound|1920|f|Electric||
+Rayhound Cryst|1600|sc|Ice||
+Red Slime|3100|c|||
+Reindrix|1930|f|Ice||
+Relaxaurus|1090|f|Dragon/Water||Glutton
+Relaxaurus Lux|770|sc|Dragon/Electric||
+Renjishi|290|f|Fire|60|
+Reptyro|1060|f|Fire/Ground||Heavyweight
+Reptyro Cryst|600|sc|Ice/Ground||Heavyweight
+Ribbuny|2860|f|Neutral||
+Ribbuny Botan|2460|sc|Grass||
+Robinquill|2260|f|Grass||
+Robinquill Terra|2050|sc|Grass/Ground||
+Rooby|2870|f|Fire||
+Roujay|530|f|Dark|60|
+Rushoar|2880|f|Ground||
+Sekhmet|870|f|Ground|30|
+Selyne|360|c|Dark/Neutral|20|
+Shadowbeak|550|c|Dark||
+Shaolong|40|c|Dragon/Water||
+Shroomer|1520|f|Grass|55|
+Shroomer Noct|1450|fs|Grass/Dark||
+Sibelyx|1810|f|Ice||
+Sibelyx Primo|650|sc|Neutral||
+Silvance|80|c|Grass||
+Silvegis|560|f|Dragon||Heavyweight
+Skutlass|1420|f|Water||
+Skutlass Ignis|1590|sc|Water/Fire||
+Slowatt|1750|f|Electric||
+Smokie|1760|f|Dark||
+Smokie Cryst|1610|sc|Dark/Ice||
+Snock|1780|f|Electric||
+Snock Lux|1500|sc|Electric/Ground||
+Snugloo|2390|f|Ice||
+Solenne|280|f|Dark/Neutral|30|
+Solmora|1370|f|Water||
+Solmora Lux|1000|sc|Water/Electric||
+Sootseer|980|f|Dark/Fire||
+Souffline|2000|f|Grass|40|
+Sparkit|3010|f|Electric||
+Splatterina|780|f|Dark|38|Sadist
+Starryon|1150|f|Dark||
+Starryon Primo|430|sc|Neutral||
+Surfent|2440|f|Water||
+Surfent Terra|1840|sc|Ground||
+Suzaku|1200|f|Fire||
+Suzaku Aqua|740|sc|Water||
+Swee|2840|f|Ice||
+Sweepa|2150|f|Ice||
+Tanzee|2900|f|Grass||
+Tanzee Ignis|2830|sc|Fire||
+Tarantriss|1730|f|Dark||
+Teafant|3070|f|Water||
+Tetroise|790|f|Ground||
+Tetroise Primo|200|sc|Neutral||
+Tocotoco|2730|f|Neutral||
+Tombat|2340|f|Dark||
+Tropicaw|1350|f|Grass||
+Turtacle|2410|f|Water||
+Turtacle Terra|1330|sc|Water/Ground||
+Univolt|2270|f|Electric||
+Univolt Cryst|540|sc|Ice||
+Vaelet|1480|f|Grass||
+Valentail|1900|f|Neutral||
+Vanwyrm|1650|f|Fire/Dark||
+Vanwyrm Cryst|1430|sc|Ice/Dark||
+Venusa|970|f|Dark|40|
+Verdash|1160|f|Grass||
+Vixy|3060|f|Neutral||
+Warsect|1280|f|Ground/Grass|85|Hard Skin
+Warsect Terra|630|sc|Ground|85|Hard Skin
+Whalaska|710|f|Ice/Water|58|
+Whalaska Ignis|370|sc|Ice/Fire|42|
+Wispaw|2250|f|Dark||
+Wistella|1180|f|Dark||
+Wixen|2080|f|Fire||
+Wixen Noct|1490|sc|Fire/Dark||
+Woolipop|2820|f|Neutral||
+Woolipop Terra|2030|sc|Ground||
+Wumpo|830|f|Ice||Heavyweight
+Wumpo Botan|610|fs|Grass||Heavyweight
+Xenogard|990|c|Dragon||Otherworldly Cells
+Xenolord|400|c|Dark/Dragon||Invader/Otherworldly Cells
+Xenovader|1820|c|Dark||Otherworldly Cells
+Yakumo|2230|f|Neutral||`;
+/* parentA|parentB|child|genderLock(A=first parent female, B=second female) */
+const COMBO_DATA = `Relaxaurus|Sparkit|Relaxaurus Lux|
+Incineram|Maraith|Incineram Noct|
+Mau|Pengullet|Mau Cryst|
+Vanwyrm|Foxcicle|Vanwyrm Cryst|
+Eikthyrdeer|Hangyu|Eikthyrdeer Terra|
+Elphidran|Surfent|Elphidran Aqua|
+Pyrin|Katress|Pyrin Noct|
+Mammorest|Wumpo|Mammorest Cryst|
+Mossanda|Grizzbolt|Mossanda Lux|
+Dinossom|Rayhound|Dinossom Lux|
+Jolthog|Pengullet|Jolthog Cryst|
+Frostallion|Helzephyr|Frostallion Noct|
+Kingpaca|Reindrix|Kingpaca Cryst|
+Lyleen|Menasting|Lyleen Noct|
+Leezpunk|Flambelle|Leezpunk Ignis|
+Blazehowl|Felbat|Blazehowl Noct|
+Robinquill|Fuddler|Robinquill Terra|
+Broncherry|Fuack|Broncherry Aqua|
+Surfent|Dumud|Surfent Terra|
+Gobfin|Rooby|Gobfin Ignis|
+Suzaku|Jormuntide|Suzaku Aqua|
+Reptyro|Foxcicle|Reptyro Cryst|
+Hangyu|Swee|Hangyu Cryst|
+Frostallion|Frostallion|Frostallion|
+Jetragon|Jetragon|Jetragon|
+Paladius|Paladius|Paladius|
+Necromus|Necromus|Necromus|
+Lyleen|Lyleen|Lyleen|
+Faleris|Faleris|Faleris|
+Grizzbolt|Grizzbolt|Grizzbolt|
+Orserk|Orserk|Orserk|
+Shadowbeak|Shadowbeak|Shadowbeak|
+Jormuntide Ignis|Jormuntide Ignis|Jormuntide Ignis|
+Relaxaurus Lux|Relaxaurus Lux|Relaxaurus Lux|
+Incineram Noct|Incineram Noct|Incineram Noct|
+Mau Cryst|Mau Cryst|Mau Cryst|
+Vanwyrm Cryst|Vanwyrm Cryst|Vanwyrm Cryst|
+Eikthyrdeer Terra|Eikthyrdeer Terra|Eikthyrdeer Terra|
+Elphidran Aqua|Elphidran Aqua|Elphidran Aqua|
+Pyrin Noct|Pyrin Noct|Pyrin Noct|
+Mammorest Cryst|Mammorest Cryst|Mammorest Cryst|
+Mossanda Lux|Mossanda Lux|Mossanda Lux|
+Dinossom Lux|Dinossom Lux|Dinossom Lux|
+Jolthog Cryst|Jolthog Cryst|Jolthog Cryst|
+Frostallion Noct|Frostallion Noct|Frostallion Noct|
+Kingpaca Cryst|Kingpaca Cryst|Kingpaca Cryst|
+Lyleen Noct|Lyleen Noct|Lyleen Noct|
+Leezpunk Ignis|Leezpunk Ignis|Leezpunk Ignis|
+Blazehowl Noct|Blazehowl Noct|Blazehowl Noct|
+Robinquill Terra|Robinquill Terra|Robinquill Terra|
+Broncherry Aqua|Broncherry Aqua|Broncherry Aqua|
+Surfent Terra|Surfent Terra|Surfent Terra|
+Gobfin Ignis|Gobfin Ignis|Gobfin Ignis|
+Suzaku Aqua|Suzaku Aqua|Suzaku Aqua|
+Reptyro Cryst|Reptyro Cryst|Reptyro Cryst|
+Hangyu Cryst|Hangyu Cryst|Hangyu Cryst|
+Jormuntide|Blazehowl|Jormuntide Ignis|
+Bellanoir|Bellanoir|Bellanoir|
+Bellanoir Libero|Bellanoir Libero|Bellanoir Libero|
+Bellanoir|Bellanoir Libero|Bellanoir|
+Gorirat Terra|Gorirat Terra|Gorirat Terra|
+Blazamut Ryu|Blazamut Ryu|Blazamut Ryu|
+Wixen Noct|Wixen Noct|Wixen Noct|
+Katress Ignis|Katress Ignis|Katress Ignis|
+Warsect Terra|Warsect Terra|Warsect Terra|
+Chillet Ignis|Chillet Ignis|Chillet Ignis|
+Quivern Botan|Quivern Botan|Quivern Botan|
+Helzephyr Lux|Helzephyr Lux|Helzephyr Lux|
+Bushi Noct|Bushi Noct|Bushi Noct|
+Menasting Terra|Menasting Terra|Menasting Terra|
+Mimog|Mimog|Mimog|
+Katress|Wixen|Wixen Noct|B
+Katress|Wixen|Katress Ignis|A
+Gorirat|Kikit|Gorirat Terra|
+Chillet|Arsox|Chillet Ignis|
+Quivern|Lullu|Quivern Botan|
+Helzephyr|Beakon|Helzephyr Lux|
+Bushi|Sootseer|Bushi Noct|
+Menasting|Knocklem|Menasting Terra|
+Selyne|Selyne|Selyne|
+Xenovader|Xenovader|Xenovader|
+Xenogard|Xenogard|Xenogard|
+Xenolord|Xenolord|Xenolord|
+Bastigor|Bastigor|Bastigor|
+Foxparks|Foxcicle|Foxparks Cryst|
+Dazzi|Omascul|Dazzi Noct|
+Cryolinx|Dazemu|Cryolinx Terra|
+Fenglope|Azurmane|Fenglope Lux|
+Caprity|Tarantriss|Caprity Noct|
+Loupmoon|Sweepa|Loupmoon Cryst|
+Faleris|Jormuntide|Faleris Aqua|
+Ribbuny|Bristla|Ribbuny Botan|
+Warsect|Digtoise|Warsect Terra|
+Kitsun|Nyafia|Kitsun Noct|
+Foxparks Cryst|Foxparks Cryst|Foxparks Cryst|
+Dazzi Noct|Dazzi Noct|Dazzi Noct|
+Cryolinx Terra|Cryolinx Terra|Cryolinx Terra|
+Fenglope Lux|Fenglope Lux|Fenglope Lux|
+Caprity Noct|Caprity Noct|Caprity Noct|
+Loupmoon Cryst|Loupmoon Cryst|Loupmoon Cryst|
+Faleris Aqua|Faleris Aqua|Faleris Aqua|
+Ribbuny Botan|Ribbuny Botan|Ribbuny Botan|
+Warsect Terra|Warsect Terra|Warsect Terra|
+Kitsun Noct|Kitsun Noct|Kitsun Noct|
+Gildane|Eikthyrdeer Terra|Celesdir|
+Celesdir|Celesdir|Celesdir|
+Green Slime|Green Slime|Green Slime|
+Green Slime|Blue Slime|Blue Slime|
+Green Slime|Red Slime|Red Slime|
+Green Slime|Purple Slime|Purple Slime|
+Green Slime|Illuminant Slime|Illuminant Slime|
+Green Slime|Rainbow Slime|Rainbow Slime|
+Green Slime|Enchanted Sword|Enchanted Sword|
+Green Slime|Cave Bat|Rainbow Slime|
+Green Slime|Illuminant Bat|Rainbow Slime|
+Green Slime|Eye of Cthulhu|Eye of Cthulhu|
+Green Slime|Demon Eye|Demon Eye|
+Blue Slime|Blue Slime|Blue Slime|
+Blue Slime|Red Slime|Purple Slime|
+Blue Slime|Purple Slime|Purple Slime|
+Blue Slime|Illuminant Slime|Illuminant Slime|
+Blue Slime|Rainbow Slime|Rainbow Slime|
+Blue Slime|Enchanted Sword|Enchanted Sword|
+Blue Slime|Cave Bat|Rainbow Slime|
+Blue Slime|Illuminant Bat|Rainbow Slime|
+Blue Slime|Eye of Cthulhu|Eye of Cthulhu|
+Blue Slime|Demon Eye|Demon Eye|
+Red Slime|Red Slime|Red Slime|
+Red Slime|Purple Slime|Purple Slime|
+Red Slime|Illuminant Slime|Illuminant Slime|
+Red Slime|Rainbow Slime|Rainbow Slime|
+Red Slime|Enchanted Sword|Enchanted Sword|
+Red Slime|Cave Bat|Rainbow Slime|
+Red Slime|Illuminant Bat|Rainbow Slime|
+Red Slime|Eye of Cthulhu|Eye of Cthulhu|
+Red Slime|Demon Eye|Demon Eye|
+Purple Slime|Purple Slime|Purple Slime|
+Purple Slime|Illuminant Slime|Illuminant Slime|
+Purple Slime|Rainbow Slime|Rainbow Slime|
+Purple Slime|Enchanted Sword|Enchanted Sword|
+Purple Slime|Cave Bat|Illuminant Bat|
+Purple Slime|Illuminant Bat|Illuminant Bat|
+Purple Slime|Eye of Cthulhu|Eye of Cthulhu|
+Purple Slime|Demon Eye|Demon Eye|
+Illuminant Slime|Illuminant Slime|Illuminant Slime|
+Illuminant Slime|Rainbow Slime|Rainbow Slime|
+Illuminant Slime|Enchanted Sword|Enchanted Sword|
+Illuminant Slime|Cave Bat|Rainbow Slime|
+Illuminant Slime|Illuminant Bat|Rainbow Slime|
+Illuminant Slime|Eye of Cthulhu|Eye of Cthulhu|
+Illuminant Slime|Demon Eye|Demon Eye|
+Rainbow Slime|Rainbow Slime|Rainbow Slime|
+Rainbow Slime|Enchanted Sword|Rainbow Slime|
+Rainbow Slime|Cave Bat|Rainbow Slime|
+Rainbow Slime|Illuminant Bat|Rainbow Slime|
+Rainbow Slime|Eye of Cthulhu|Eye of Cthulhu|
+Rainbow Slime|Demon Eye|Demon Eye|
+Enchanted Sword|Enchanted Sword|Enchanted Sword|
+Enchanted Sword|Cave Bat|Enchanted Sword|
+Enchanted Sword|Illuminant Bat|Enchanted Sword|
+Enchanted Sword|Eye of Cthulhu|Eye of Cthulhu|
+Enchanted Sword|Demon Eye|Demon Eye|
+Cave Bat|Cave Bat|Cave Bat|
+Cave Bat|Illuminant Bat|Illuminant Bat|
+Cave Bat|Eye of Cthulhu|Eye of Cthulhu|
+Cave Bat|Demon Eye|Demon Eye|
+Illuminant Bat|Illuminant Bat|Illuminant Bat|
+Illuminant Bat|Eye of Cthulhu|Eye of Cthulhu|
+Illuminant Bat|Demon Eye|Demon Eye|
+Eye of Cthulhu|Eye of Cthulhu|Eye of Cthulhu|
+Eye of Cthulhu|Demon Eye|Eye of Cthulhu|
+Demon Eye|Demon Eye|Demon Eye|
+Killamari Primo|Killamari Primo|Killamari Primo|
+Pengullet Lux|Pengullet Lux|Pengullet Lux|
+Penking Lux|Penking Lux|Penking Lux|
+Celaray Lux|Celaray Lux|Celaray Lux|
+Fuack Ignis|Fuack Ignis|Fuack Ignis|
+Dumud Gild|Dumud Gild|Dumud Gild|
+Turtacle Terra|Turtacle Terra|Turtacle Terra|
+Croajiro Noct|Croajiro Noct|Croajiro Noct|
+Azurobe Cryst|Azurobe Cryst|Azurobe Cryst|
+Whalaska Ignis|Whalaska Ignis|Whalaska Ignis|
+Ghangler Ignis|Ghangler Ignis|Ghangler Ignis|
+Finsider Ignis|Finsider Ignis|Finsider Ignis|
+Neptilius|Neptilius|Neptilius|
+Killamari|Ribbuny|Killamari Primo|
+Pengullet|Sparkit|Pengullet Lux|
+Penking|Rayhound|Penking Lux|
+Celaray|Univolt|Celaray Lux|
+Fuack|Flambelle|Fuack Ignis|
+Dumud|Eikthyrdeer Terra|Dumud Gild|
+Turtacle|Digtoise|Turtacle Terra|
+Croajiro|Bushi Noct|Croajiro Noct|
+Azurobe|Frostplume|Azurobe Cryst|
+Whalaska|Chillet Ignis|Whalaska Ignis|
+Ghangler|Sootseer|Ghangler Ignis|
+Finsider|Gobfin Ignis|Finsider Ignis|
+Hartalis|Hartalis|Hartalis|
+Tanzee Ignis|Tanzee Ignis|Tanzee Ignis|
+Univolt Cryst|Univolt Cryst|Univolt Cryst|
+Rayhound Cryst|Rayhound Cryst|Rayhound Cryst|
+Beakon Cryst|Beakon Cryst|Beakon Cryst|
+Woolipop Terra|Woolipop Terra|Woolipop Terra|
+Prixter Lux|Prixter Lux|Prixter Lux|
+Smokie Cryst|Smokie Cryst|Smokie Cryst|
+Nitemary Botan|Nitemary Botan|Nitemary Botan|
+Starryon Primo|Starryon Primo|Starryon Primo|
+Gloopie Primo|Gloopie Primo|Gloopie Primo|
+Sibelyx Primo|Sibelyx Primo|Sibelyx Primo|
+Knocklem Ignis|Knocklem Ignis|Knocklem Ignis|
+Petallia Ignis|Petallia Ignis|Petallia Ignis|
+Celesdir Noct|Celesdir Noct|Celesdir Noct|
+Polapup Terra|Polapup Terra|Polapup Terra|
+Solmora Lux|Solmora Lux|Solmora Lux|
+Dualith Noct|Dualith Noct|Dualith Noct|
+Tetroise Primo|Tetroise Primo|Tetroise Primo|
+Eidrolon Ignis|Eidrolon Ignis|Eidrolon Ignis|
+Moldron Cryst|Moldron Cryst|Moldron Cryst|
+Pierdon Cryst|Pierdon Cryst|Pierdon Cryst|
+Skutlass Ignis|Skutlass Ignis|Skutlass Ignis|
+Snock Lux|Snock Lux|Snock Lux|
+Needoll Noct|Needoll Noct|Needoll Noct|
+Elgrove Cryst|Elgrove Cryst|Elgrove Cryst|
+Tanzee|Flambelle|Tanzee Ignis|
+Univolt|Frostplume|Univolt Cryst|
+Rayhound|Foxcicle|Rayhound Cryst|
+Beakon|Frostplume|Beakon Cryst|
+Woolipop|Kikit|Woolipop Terra|
+Prixter|Helzephyr Lux|Prixter Lux|
+Smokie|Munchill|Smokie Cryst|
+Nitemary|Petallia|Nitemary Botan|
+Starryon|Celesdir|Starryon Primo|
+Gloopie|Valentail|Gloopie Primo|
+Sibelyx|Lapure|Sibelyx Primo|
+Knocklem|Ragnahawk|Knocklem Ignis|
+Petallia|Bushi|Petallia Ignis|
+Celesdir|Kitsun Noct|Celesdir Noct|
+Polapup|Surfent Terra|Polapup Terra|
+Solmora|Slowatt|Solmora Lux|
+Dualith|Sootseer|Dualith Noct|
+Tetroise|Celesdir|Tetroise Primo|
+Eidrolon|Suzaku|Eidrolon Ignis|
+Moldron|Reptyro Cryst|Moldron Cryst|
+Pierdon|Wumpo|Pierdon Cryst|
+Skutlass|Gobfin Ignis|Skutlass Ignis|
+Snock|Turtacle Terra|Snock Lux|
+Needoll|Prunelia|Needoll Noct|
+Elgrove|Pierdon Cryst|Elgrove Cryst|
+Shaolong|Shaolong|Shaolong|
+Dandilord|Dandilord|Dandilord|
+Silvance|Silvance|Silvance|`;
+/* passive|tier|holders */
+const TRAIT_DATA = `Eternal Flame|4|Blazamut Ryu
+Invader|4|Xenolord
+Legend|4|Frostallion/Frostallion Noct/Jetragon/Necromus/Neptilius/Paladius/Panthalus
+Lunker|4|Neptilius
+Savior|4|Hartalis
+Siren of the Void|4|Bellanoir Libero
+Celestial Emperor|3|Paladius
+Divine Dragon|3|Jetragon
+Earth Emperor|3|Anubis
+Flame Emperor|3|Blazamut
+Ice Emperor|3|Frostallion
+Lord of Lightning|3|Orserk
+Lord of the Sea|3|Jormuntide
+Lord of the Underworld|3|Frostallion Noct/Necromus
+Spirit Emperor|3|Lyleen
+Heavyweight|2|Aegidron/Braloha/Broncherry/Broncherry Aqua/Dualith/Dualith Noct/Kingpaca/Kingpaca Cryst/Knocklem/Knocklem Ignis/Mammorest/Mammorest Cryst/Pierdon/Pierdon Cryst/Reptyro/Reptyro Cryst/Silvegis/Wumpo/Wumpo Botan
+Abnormal|1|Lovander
+Hard Skin|1|Astegon/Digtoise/Warsect/Warsect Terra
+Hooligan|1|Gorirat/Gorirat Terra
+Otherworldly Cells|1|Xenogard/Xenolord/Xenovader
+Sadist|1|Splatterina
+Coward|-1|Cattiva
+Glutton|-1|Relaxaurus`;
+/* every player-facing passive: name|tier|innate holders */
+const PASS_DATA = `Babysitter|4|
+Blood Is Fuel|4|
+Demon God|4|
+Diamond Body|4|
+Eternal Engine|4|
+Eternal Flame|4|Blazamut Ryu
+Heart of the Immovable King|4|
+Heavily Armored|4|
+Idiosyncratic|4|
+Immortality|4|
+Invader|4|Xenolord
+King of the Waves|4|
+Lavish Hospitality|4|
+Legend|4|Frostallion/Frostallion Noct/Jetragon/Necromus/Neptilius/Paladius/Panthalus
+Lightfooted|4|
+Logging Yield Up Lv. 5|4|
+Lucky|4|
+Lunker|4|Neptilius
+Mastery of Fasting|4|
+Mining Yield Up Lv. 5|4|
+Ranch Master|4|
+Remarkable Craftsmanship|4|
+Savior|4|Hartalis
+Siren of the Void|4|Bellanoir Libero
+Skymarcher|4|
+Swift|4|
+Tempest Fury|4|
+Vampiric|4|
+Ace Swimmer|3|
+Artisan|3|
+Burly Body|3|
+Celestial Emperor|3|Paladius
+Cold Resistance Lv. 3|3|
+Diet Lover|3|
+Divine Dragon|3|Jetragon
+Earth Emperor|3|Anubis
+Farmhand|3|
+Ferocious|3|
+Flame Emperor|3|Blazamut
+Healing Coach|3|
+Heat Resistance Lv. 3|3|
+Heat Resistance Lv. 3 / Cold Resistance Lv. 3|3|
+Ice Emperor|3|Frostallion
+Infinite Stamina|3|
+Logging Foreman|3|
+Logging Yield Up Lv. 3|3|
+Logging Yield Up Lv. 4|3|
+Logging/Mining Yield Up|3|
+Lord of Lightning|3|Orserk
+Lord of the Sea|3|Jormuntide
+Lord of the Underworld|3|Frostallion Noct/Necromus
+Mine Foreman|3|
+Mining Yield Up Lv. 3|3|
+Mining Yield Up Lv. 4|3|
+Motivational Leader|3|
+Noble|3|
+Reload Master|3|
+Runner|3|
+Serenity|3|
+Service-Minded|3|
+Spirit Emperor|3|Lyleen
+Stronghold Strategist|3|
+Vanguard|3|
+Wellness Watcher|3|
+Whopper|3|
+Workaholic|3|
+Cold Resistance Lv. 2|2|
+Heat Resistance Lv. 2|2|
+Heat Resistance Lv. 2 / Cold Resistance Lv. 2|2|
+Heavyweight|2|Aegidron/Braloha/Broncherry/Broncherry Aqua/Dualith/Dualith Noct/Kingpaca/Kingpaca Cryst/Knocklem/Knocklem Ignis/Mammorest/Mammorest Cryst/Pierdon/Pierdon Cryst/Reptyro/Reptyro Cryst/Silvegis/Wumpo/Wumpo Botan
+Musclehead|2|
+Abnormal|1|Lovander
+Aerial Dash +1|1|
+Aerial Dash +2|1|
+Aerial Dash +3|1|
+Aerial Dash +4|1|
+Aggressive|1|
+Berry Picker|1|
+Blood of the Dragon|1|
+Botanical Barrier|1|
+Brave|1|
+Capacitor|1|
+Cheery|1|
+Cold Resistance Lv. 1|1|
+Coldblooded|1|
+Conceited|1|
+Confectioner|1|
+Dainty Eater|1|
+Dragonkiller|1|
+Earthquake Resistant|1|
+Egg Layer|1|
+Explosion Immunity|1|
+Extended Dodge Immunity|1|
+Fine Furs|1|
+Fit as a Fiddle|1|
+Fragrant Foliage|1|
+Gold Digger|1|
+Hard Skin|1|Astegon/Digtoise/Warsect/Warsect Terra
+Heat Resistance Lv. 1|1|
+Heat Resistance Lv. 1 / Cold Resistance Lv. 1|1|
+Heated Body|1|
+Hooligan|1|Gorirat/Gorirat Terra
+Hydromaniac|1|
+Impatient|1|
+Insomnia|1|
+Insulated Body|1|
+Jump Count Increase +1|1|
+Jump Count Increase +2|1|
+Jump Count Increase +3|1|
+Jump Power Boost|1|
+Logging Yield Up Lv. 1|1|
+Logging Yield Up Lv. 2|1|
+Masochist|1|
+Milk Maker|1|
+Mining Yield Up Lv. 1|1|
+Mining Yield Up Lv. 2|1|
+Nimble|1|
+Otherworldly Cells|1|Xenogard/Xenolord/Xenovader
+Positive Thinker|1|
+Power of Gaia|1|
+Pyromaniac|1|
+Sadist|1|Splatterina
+Serious|1|
+Sharing is Caring|1|
+Silk Spinner|1|
+Sleek Stroke|1|
+Spirit of Zen|1|
+Suntan Lover|1|
+Toxic Gas Immunity|1|
+Veil of Darkness|1|
+Waterproof|1|
+Wool Maker|1|
+Work Slave|1|
+Clumsy|-1|
+Coward|-1|Cattiva
+Downtrodden|-1|
+Easygoing|-1|
+Glutton|-1|Relaxaurus
+Hallowed Guard|-1|
+Hallowed Power: Close Range|-1|
+Hallowed Power: Magic|-1|
+Hallowed Power: Ranged|-1|
+Hallowed Power: Summon|-1|
+Mentally unstable|-1|
+Mercy Hit|-1|
+Night Owl|-1|
+Party Pals Bond Boost|-1|
+Shabby|-1|
+Sickly|-1|
+Unstable|-1|
+Bottomless Stomach|-2|
+Destructive|-2|
+Brittle|-3|
+Pacifist|-3|
+Slacker|-3|`;
+
+const P = {}, NAMES = [];
+PAL_DATA.trim().split('\n').forEach(l => {
+  const [n, r, fl, el, male, innate] = l.split('|');
+  P[n] = { rank:+r, formula: fl.includes('f'), sub: fl.includes('s'),
+           comboChild: fl.includes('c'), noRecipe: fl.includes('x'),
+           el: el ? el.split('/') : [], male: male ? +male : 50,
+           innate: innate ? innate.split('/') : [] };
+  NAMES.push(n);
+});
+NAMES.sort();
+
+const COMBOS = COMBO_DATA.trim().split('\n').map(l => {
+  const [a, b, c, g] = l.split('|');
+  return { a, b, c, g: g || '' };
+});
+const CMAP = {};
+COMBOS.forEach(k => {
+  if(k.a === k.b) return;                       // self-pairs handled separately
+  (CMAP[k.a] = CMAP[k.a] || []).push({ mate:k.b, child:k.c, g:k.g });
+  (CMAP[k.b] = CMAP[k.b] || []).push({ mate:k.a, child:k.c, g:k.g });
+});
+
+const TRAITS = {};
+TRAIT_DATA.trim().split('\n').forEach(l => {
+  const [n, tier, holders] = l.split('|');
+  TRAITS[n] = { tier:+tier, holders: holders.split('/') };
+});
+
+const PASSIVES = {}, PASSNAMES = [];
+PASS_DATA.trim().split('\n').forEach(l => {
+  const [n, tier, holders] = l.split('|');
+  PASSIVES[n] = { tier:+tier, holders: holders ? holders.split('/') : [] };
+  PASSNAMES.push(n);
+});
+
+const COLLAB = new Set(NAMES.filter(n => P[n].rank === 3100));
+const CANDIDATES = NAMES.filter(n => P[n].formula).sort((a, b) => P[a].rank - P[b].rank);
+const MAXR = 3100;
+
+/* nearest formula-eligible child for every average; ties reported, never guessed */
+const NEAREST = (() => {
+  const t = new Array(MAXR + 1);
+  for(let v = 0; v <= MAXR; v++){
+    let best = [], bd = Infinity;
+    for(const c of CANDIDATES){
+      const d = Math.abs(P[c].rank - v);
+      if(d < bd){ bd = d; best = [c]; } else if(d === bd) best.push(c);
+    }
+    t[v] = { name: best[0], all: best, tie: best.length > 1, off: bd };
+  }
+  return t;
+})();
+
+const avgOf = (a, b) => Math.floor((P[a].rank + P[b].rank + 1) / 2);
+
+function hops(carrier, pool, poolSet, exactOnly, useCombos){
+  const out = [];
+  if(useCombos && CMAP[carrier])
+    for(const k of CMAP[carrier])
+      if(poolSet.has(k.mate)) out.push({ mate:k.mate, child:k.child, kind:'combo', g:k.g });
+  for(const p of pool){
+    const r = NEAREST[avgOf(carrier, p)];
+    if(exactOnly && (r.off !== 0 || r.tie)) continue;
+    out.push({ mate:p, child:r.name, kind:'formula', tie:r.tie, off:r.off, all:r.all });
+  }
+  return out;
+}
+
+function plan(origin, target, pool, exactOnly, useCombos, maxDepth = 8){
+  if(origin === target) return { same:true };
+  const poolSet = new Set(pool);
+  const prev = new Map();
+  let frontier = [origin];
+  const seen = new Set([origin]);
+  for(let d = 0; d < maxDepth; d++){
+    const next = [], edges = new Map();
+    for(const carrier of frontier){
+      for(const h of hops(carrier, pool, poolSet, exactOnly, useCombos)){
+        if(h.child === carrier) continue;
+        if(seen.has(h.child) && h.child !== target) continue;
+        if(!edges.has(h.child))
+          edges.set(h.child, { from:carrier, mates:[], kind:h.kind, tie:!!h.tie,
+                               off:h.off || 0, g:h.g || '', all:h.all });
+        const e = edges.get(h.child);
+        if(e.from === carrier && e.kind === h.kind) e.mates.push(h.mate);
+      }
+    }
+    for(const [child, e] of edges){
+      if(!prev.has(child)) prev.set(child, e);
+      if(!seen.has(child)){ seen.add(child); next.push(child); }
+      if(child === target){
+        const chain = [];
+        let cur = target;
+        while(cur !== origin){
+          const st = prev.get(cur);
+          chain.unshift({ carrier:st.from, mate:st.mates[0], alts:st.mates, child:cur,
+                          kind:st.kind, tie:st.tie, off:st.off, g:st.g, all:st.all });
+          cur = st.from;
+        }
+        return { chain };
+      }
+    }
+    if(!next.length) break;
+    frontier = next;
+  }
+  return { chain:null };
+}
+
+function directPairs(target, useCombos){
+  const out = [];
+  if(useCombos)
+    COMBOS.filter(k => k.c === target && k.a !== k.b)
+          .forEach(k => out.push(`${k.a} + ${k.b}  (unique${k.g ? ', gendered' : ''})`));
+  if(P[target].formula){
+    const need = P[target].rank * 2;
+    for(let i = 0; i < NAMES.length; i++)
+      for(let j = i; j < NAMES.length; j++)
+        if(P[NAMES[i]].rank + P[NAMES[j]].rank === need){
+          const r = NEAREST[avgOf(NAMES[i], NAMES[j])];
+          if(r.name === target && !r.tie) out.push(`${NAMES[i]} + ${NAMES[j]}`);
+        }
+  }
+  return out;
+}
+
+/* ================= roster mode engine =================
+   Plan: get each desired passive onto a target-species Pal, then merge.
+   Within one species, merging is species-safe, so merge first and chain once.
+   Cost is measured in generations (breeding steps), not eggs.
+*/
+
+/* shortest species chain length, memoised */
+const CHAIN_CACHE = new Map();
+function chainTo(from, to, pool, exactOnly, useCombos){
+  const key = from + '>' + to;
+  if(CHAIN_CACHE.has(key)) return CHAIN_CACHE.get(key);
+  let val;
+  if(from === to) val = { n:0, chain:[] };
+  else {
+    const r = plan(from, to, pool, exactOnly, useCombos);
+    val = r.chain ? { n:r.chain.length, chain:r.chain } : null;
+  }
+  CHAIN_CACHE.set(key, val);
+  return val;
+}
+
+const bitCount = m => { let c = 0; while(m){ c += m & 1; m >>= 1; } return c; };
+
+/* Per species: the cheapest number of owned carriers needed for each coverage mask. */
+function speciesOptions(entries, full){
+  const N = full + 1;
+  let best = new Array(N).fill(Infinity);
+  let via  = new Array(N).fill(null);
+  best[0] = 0;
+  for(let i = 0; i < entries.length; i++){
+    const cov = entries[i].cover;
+    if(!cov) continue;
+    const nb = best.slice(), nv = via.slice();
+    for(let m = 0; m < N; m++){
+      if(best[m] === Infinity) continue;
+      const nm = m | cov;
+      if(best[m] + 1 < nb[nm]){ nb[nm] = best[m] + 1; nv[nm] = { prev:m, idx:i }; }
+    }
+    best = nb; via = nv;
+  }
+  return { best, via };
+}
+
+function rosterPlan(roster, target, desiredList, pool, exactOnly, useCombos){
+  const D = desiredList;
+  const full = (1 << D.length) - 1;
+  const bit = p => { const i = D.indexOf(p); return i < 0 ? 0 : (1 << i); };
+
+  /* group owned Pals by species, keeping only those that cover something wanted */
+  const groups = new Map();
+  roster.forEach((r, idx) => {
+    let cover = 0;
+    r.passives.forEach(p => cover |= bit(p));
+    if(!groups.has(r.species)) groups.set(r.species, []);
+    groups.get(r.species).push({ ...r, idx, cover });
+  });
+
+  /* per species: coverage mask -> {carriers needed, chain to target} */
+  const opts = [];
+  const unreachable = [];
+  for(const [sp, entries] of groups){
+    const ch = chainTo(sp, target, pool, exactOnly, useCombos);
+    if(!ch){ unreachable.push(sp); continue; }
+    const { best, via } = speciesOptions(entries, full);
+    for(let m = 1; m <= full; m++){
+      if(best[m] === Infinity) continue;
+      /* rebuild which carriers this mask used */
+      const used = [];
+      let cur = m;
+      while(cur && via[cur]){ used.push(entries[via[cur].idx]); cur = via[cur].prev; }
+      opts.push({ species:sp, mask:m, merges:best[m] - 1, chain:ch, used:used.reverse(),
+                  cost:(best[m] - 1) + ch.n });
+    }
+  }
+
+  /* global DP: pick species groups covering everything, +1 per group for the join */
+  const N = full + 1;
+  const dp = new Array(N).fill(Infinity), from = new Array(N).fill(null);
+  dp[0] = 0;
+  for(let m = 0; m < N; m++){
+    if(dp[m] === Infinity) continue;
+    for(const o of opts){
+      if((m | o.mask) === m) continue;
+      const nm = m | o.mask, c = dp[m] + o.cost + 1;
+      if(c < dp[nm]){ dp[nm] = c; from[nm] = { prev:m, opt:o }; }
+    }
+  }
+
+  if(dp[full] === Infinity){
+    /* which passives can't be covered at all? */
+    let coverable = 0;
+    opts.forEach(o => coverable |= o.mask);
+    const gaps = D.filter((_, i) => !(coverable & (1 << i)));
+    return { fail:true, gaps, unreachable };
+  }
+
+  const steps = [];
+  let cur = full;
+  while(cur){ const f = from[cur]; steps.unshift(f.opt); cur = f.prev; }
+  return { total: dp[full] - 1, steps, unreachable };
+}
+
+/* ---------------- ui ---------------- */
+const $ = id => document.getElementById(id);
+const opts = (sel, list) => sel.innerHTML = list.map(n => `<option>${n}</option>`).join('');
+const els = n => P[n].el.map(e => `<span class="el">${e}</span>`).join('');
+const genderNote = n => P[n].male !== 50 ? `<span class="rank warn">${P[n].male}% male</span>` : '';
+
+$('trait').innerHTML = `<option value="">&mdash; choose a passive &mdash;</option>` +
+  Object.keys(TRAITS).map(n => `<option>${n}</option>`).join('');
+$('target').innerHTML = `<option value="">&mdash; choose a Pal &mdash;</option>` +
+  NAMES.map(n => `<option>${n}</option>`).join('');
+
+let mode = 'trait';
+function setMode(m){
+  mode = m;
+  $('mTrait').setAttribute('aria-pressed', m === 'trait');
+  $('mPal').setAttribute('aria-pressed', m === 'pal');
+  $('mBox').setAttribute('aria-pressed', m === 'box');
+  $('traitField').hidden = m !== 'trait';
+  $('palField').hidden = m !== 'pal';
+  $('boxField').hidden = m !== 'box';
+  $('wantField').hidden = m !== 'box';
+  $('ioPanel').hidden = m !== 'box';
+}
+$('mTrait').onclick = () => { setMode('trait'); run(); };
+$('mPal').onclick = () => { setMode('pal'); run(); };
+$('mBox').onclick = () => { setMode('box'); run(); };
+
+/* ---- starting Pals for One Pal mode ---- */
+let ORIGINS = [];
+
+function drawOrigins(){
+  $('origins').innerHTML = ORIGINS.map((n, i) => `
+    <div class="rrow"><div class="rtop">
+      <span class="rname">${n}</span><span class="rank">rank ${P[n].rank}</span>
+      <button class="xbtn" data-do="${i}" title="Remove ${n}">&times;</button>
+    </div></div>`).join('') || '<p class="hint">No starting Pals yet.</p>';
+  $('origins').querySelectorAll('[data-do]').forEach(b => b.onclick = () => {
+    ORIGINS.splice(+b.dataset.do, 1); drawOrigins(); run();
+  });
+  $('combineWrap').hidden = ORIGINS.length < 2;
+  $('originHint').textContent = ORIGINS.length < 2
+    ? 'Add as many as you like.'
+    : ($('combineOn').checked
+        ? 'Every line breeds together, so the finished Pal inherits from all of them.'
+        : 'Treated as alternatives — the tree uses whichever is closest, and the rest are only compared.');
+}
+
+/* ---- roster state ---- */
+let ROSTER = [];
+let WANTS = [];
+
+const passOpt = ph => `<option value="">${ph}</option>` +
+  PASSNAMES.map(p => `<option value="${p}">${p}${PASSIVES[p].holders.length ? ' \u2014 innate' : ''}</option>`).join('');
+
+function drawRoster(){
+  $('roster').innerHTML = ROSTER.map((r, i) => `
+    <div class="rrow">
+      <div class="rtop">
+        <span class="rname">${r.species}</span>
+        <button class="xbtn" data-del="${i}" title="Remove ${r.species}">&times;</button>
+      </div>
+      <div>${r.passives.map((p, j) =>
+        `<span class="chip rm" data-rp="${i}.${j}" title="Remove ${p}">${p} &times;</span>`).join('')
+        || '<span class="hint">no passives yet</span>'}</div>
+      <select class="miniadd" data-addp="${i}">${passOpt('+ add a passive it has')}</select>
+    </div>`).join('') || '<p class="hint">Your box is empty. Add a Pal below.</p>';
+
+  $('roster').querySelectorAll('[data-del]').forEach(b => b.onclick = () => {
+    ROSTER.splice(+b.dataset.del, 1); drawRoster(); run();
+  });
+  $('roster').querySelectorAll('[data-rp]').forEach(c => c.onclick = () => {
+    const [i, j] = c.dataset.rp.split('.').map(Number);
+    ROSTER[i].passives.splice(j, 1); drawRoster(); run();
+  });
+  $('roster').querySelectorAll('[data-addp]').forEach(s => s.onchange = () => {
+    const i = +s.dataset.addp, v = s.value;
+    if(v && !ROSTER[i].passives.includes(v) && ROSTER[i].passives.length < 4)
+      ROSTER[i].passives.push(v);
+    s.value = ''; drawRoster(); run();
+  });
+}
+
+function drawWants(){
+  $('wants').innerHTML = WANTS.map((p, i) =>
+    `<span class="chip rm want" data-rw="${i}" title="Remove ${p}">${p} &times;</span>`).join('')
+    || '<p class="hint">Pick at least one passive.</p>';
+  $('wants').querySelectorAll('[data-rw]').forEach(c => c.onclick = () => {
+    WANTS.splice(+c.dataset.rw, 1); drawWants(); run();
+  });
+  $('addWant').disabled = WANTS.length >= 4;
+}
+
+$('addOrigin').innerHTML = `<option value="">+ add a starting Pal</option>` +
+  NAMES.map(n => `<option>${n}</option>`).join('');
+$('addOrigin').onchange = () => {
+  const v = $('addOrigin').value;
+  if(v && !ORIGINS.includes(v)) ORIGINS.push(v);
+  $('addOrigin').value = ''; drawOrigins(); run();
+};
+
+/* ---- save / load the box ---- */
+function boxJSON(){
+  return JSON.stringify({ format:'palworld-passive-carrier', v:1,
+    target:$('target').value, wants:WANTS, roster:ROSTER }, null, 2);
+}
+$('ioSave').onclick = () => {
+  const data = boxJSON();
+  let ok = false;
+  try{
+    const url = URL.createObjectURL(new Blob([data], { type:'application/json' }));
+    const a = document.createElement('a');
+    a.href = url; a.download = 'palworld-box.json';
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 2000);
+    ok = true;
+  }catch(e){ ok = false; }
+  $('ioText').value = data;
+  $('ioWrap').hidden = false;
+  $('ioMsg').textContent = ok
+    ? 'Saved as palworld-box.json. If your browser blocked it, copy the text below instead.'
+    : 'Download blocked here — copy the text below and save it yourself.';
+};
+$('ioLoad').onclick = () => $('ioFile').click();
+$('ioFile').onchange = e => {
+  const f = e.target.files && e.target.files[0];
+  if(!f) return;
+  const fr = new FileReader();
+  fr.onload = () => loadBox(String(fr.result));
+  fr.onerror = () => { $('ioMsg').textContent = "Couldn't read that file."; };
+  fr.readAsText(f);
+  $('ioFile').value = '';
+};
+$('ioPaste').onclick = () => loadBox($('ioText').value);
+
+function loadBox(text){
+  let d;
+  try{ d = JSON.parse(text); }
+  catch(e){ $('ioMsg').textContent = "That isn't valid JSON."; return; }
+  if(!d || !Array.isArray(d.roster)){
+    $('ioMsg').textContent = "That doesn't look like a box file — no roster in it."; return;
+  }
+  const dropped = [];
+  ROSTER = d.roster.filter(r => {
+    if(r && P[r.species]) return true;
+    if(r && r.species) dropped.push(r.species);
+    return false;
+  }).map(r => ({
+    species: r.species,
+    passives: (Array.isArray(r.passives) ? r.passives : [])
+      .filter(p => { if(PASSIVES[p]) return true; if(p) dropped.push(p); return false; })
+      .slice(0, 4)
+  }));
+  WANTS = (Array.isArray(d.wants) ? d.wants : []).filter(p => PASSIVES[p]).slice(0, 4);
+  if(d.target && P[d.target]) $('target').value = d.target;
+  drawRoster(); drawWants(); run();
+  $('ioMsg').textContent = `Loaded ${ROSTER.length} Pal${ROSTER.length === 1 ? '' : 's'}` +
+    (dropped.length ? `. Skipped ${listJoin([...new Set(dropped)], 'and')} — not in the 1.0 data.` : '.');
+}
+
+$('addPal').innerHTML = `<option value="">+ add a Pal you own</option>` +
+  NAMES.map(n => `<option>${n}</option>`).join('');
+$('addPal').onchange = () => {
+  if($('addPal').value){ ROSTER.push({ species:$('addPal').value, passives:[] }); }
+  $('addPal').value = ''; drawRoster(); run();
+};
+$('addWant').innerHTML = passOpt('+ add a passive you want');
+$('addWant').onchange = () => {
+  const v = $('addWant').value;
+  if(v && !WANTS.includes(v) && WANTS.length < 4) WANTS.push(v);
+  $('addWant').value = ''; drawWants(); run();
+};
+
+const listJoin = (a, conj) => a.length < 2 ? a.join('')
+  : a.slice(0, -1).join(', ') + ' ' + conj + ' ' + a[a.length - 1];
+
+const pct = r => ((r - 30) / (MAXR - 30)) * 100;
+function chainTree(chain, base, rootKind){
+  if(!chain || !chain.length) return base;
+  const build = i => {
+    if(i < 0) return base;
+    const s = chain[i];
+    return {
+      name: s.child, step: s,
+      kind: s.kind === 'combo' ? 'combo' : (i === chain.length - 1 ? rootKind : 'spine'),
+      parents: [ build(i - 1), { name: s.mate, kind: 'partner' } ]
+    };
+  };
+  return build(chain.length - 1);
+}
+
+function groupTree(g, target, wants){
+  const own = g.used;
+  let acc = own[0].passives.slice();
+  let node = { name: own[0].species, kind: 'owned', passives: own[0].passives.slice() };
+  for(let i = 1; i < own.length; i++){
+    own[i].passives.forEach(p => { if(!acc.includes(p)) acc.push(p); });
+    node = { name: g.species, kind: 'merge', merged: true, pool: acc.slice(),
+             parents: [ node, { name: g.species, kind: 'owned', passives: own[i].passives.slice() } ] };
+  }
+  const isRoot = g.chain.n > 0;
+  return chainTree(g.chain.chain, node, isRoot ? 'group' : 'owned');
+}
+
+function joinTrees(steps, target, wants){
+  let acc = [];
+  const wantedOf = s => {
+    const u = [];
+    s.used.forEach(x => x.passives.forEach(p => { if(!u.includes(p)) u.push(p); }));
+    return u.filter(p => wants.includes(p));
+  };
+  let node = groupTree(steps[0], target, wants);
+  acc = wantedOf(steps[0]).slice();
+  for(let i = 1; i < steps.length; i++){
+    wantedOf(steps[i]).forEach(p => { if(!acc.includes(p)) acc.push(p); });
+    node = { name: target, kind: i === steps.length - 1 ? 'root' : 'join', merged: true,
+             pool: acc.slice(), parents: [ node, groupTree(steps[i], target, wants) ] };
+  }
+  if(steps.length === 1 && (node.kind === 'group' || node.kind === 'merge')) node.kind = 'root';
+  return node;
+}
+
+/* ---------------- combining several starting Pals ----------------
+   Two carriers can meet: each line breeds toward a species, those two
+   species breed together, and the single child carries on to the target.
+   That is usually shorter than chaining each line to the target separately.
+*/
+const REACH_CACHE = new Map();
+
+function reachFrom(origin, pool, poolSet, exactOnly, useCombos, maxDepth = 7){
+  const key = origin + '|' + exactOnly + '|' + useCombos + '|' + pool.length;
+  if(REACH_CACHE.has(key)) return REACH_CACHE.get(key);
+  const prev = new Map(), dist = new Map([[origin, 0]]);
+  let frontier = [origin];
+  for(let d = 0; d < maxDepth; d++){
+    const edges = new Map();
+    for(const carrier of frontier)
+      for(const h of hops(carrier, pool, poolSet, exactOnly, useCombos)){
+        if(h.child === carrier || dist.has(h.child)) continue;
+        if(!edges.has(h.child))
+          edges.set(h.child, { from:carrier, mates:[], kind:h.kind, tie:!!h.tie,
+                               off:h.off || 0, g:h.g || '', all:h.all });
+        const e = edges.get(h.child);
+        if(e.from === carrier && e.kind === h.kind) e.mates.push(h.mate);
+      }
+    const next = [];
+    for(const [ch, e] of edges){
+      if(dist.has(ch)) continue;
+      dist.set(ch, d + 1); prev.set(ch, e); next.push(ch);
+    }
+    if(!next.length) break;
+    frontier = next;
+  }
+  const val = { dist, prev };
+  REACH_CACHE.set(key, val);
+  return val;
+}
+
+function chainFrom(prev, origin, x){
+  const chain = [];
+  let cur = x, guard = 0;
+  while(cur !== origin){
+    const st = prev.get(cur);
+    if(!st || guard++ > 20) return null;
+    chain.unshift({ carrier:st.from, mate:st.mates[0], alts:st.mates, child:cur,
+                    kind:st.kind, tie:st.tie, off:st.off, g:st.g, all:st.all });
+    cur = st.from;
+  }
+  return chain;
+}
+
+/* how many generations from each species to the target */
+function distToTarget(target, pool, poolSet, exactOnly, useCombos, maxDepth = 7){
+  const dist = new Map([[target, 0]]);
+  for(let d = 0; d < maxDepth; d++){
+    const found = [];
+    for(const carrier of NAMES){
+      if(dist.has(carrier)) continue;
+      for(const h of hops(carrier, pool, poolSet, exactOnly, useCombos)){
+        if(dist.get(h.child) === d){ found.push(carrier); break; }
+      }
+    }
+    if(!found.length) break;
+    found.forEach(c => dist.set(c, d + 1));
+  }
+  return dist;
+}
+
+/* cheapest place two lines can converge and still reach the target */
+function meetPoint(spA, spB, dT, pool, poolSet, exactOnly, useCombos){
+  const A = reachFrom(spA, pool, poolSet, exactOnly, useCombos);
+  const B = reachFrom(spB, pool, poolSet, exactOnly, useCombos);
+  let best = null;
+  for(const [X, dx] of A.dist){
+    for(const h of hops(X, pool, poolSet, exactOnly, useCombos)){
+      const dy = B.dist.get(h.mate);
+      if(dy === undefined) continue;
+      const dz = dT.get(h.child);
+      if(dz === undefined) continue;
+      const total = dx + dy + 1 + dz;
+      if(!best || total < best.total)
+        best = { total, X, Y:h.mate, Z:h.child, dx, dy, dz, A, B,
+                 kind:h.kind, tie:!!h.tie, off:h.off || 0, g:h.g || '' };
+    }
+  }
+  return best;
+}
+
+function combineOrigins(origins, target, pool, exactOnly, useCombos){
+  const poolSet = new Set(pool);
+  REACH_CACHE.clear();
+  const dT = distToTarget(target, pool, poolSet, exactOnly, useCombos);
+  let nodes = origins.map(o => ({ sp:o, tree:{ name:o, kind:'origin' } }));
+  let gens = 0;
+
+  while(nodes.length > 1){
+    let best = null;
+    for(let i = 0; i < nodes.length; i++)
+      for(let j = i + 1; j < nodes.length; j++){
+        const m = meetPoint(nodes[i].sp, nodes[j].sp, dT, pool, poolSet, exactOnly, useCombos);
+        if(m && (!best || m.total < best.total)) best = Object.assign({ i, j }, m);
+      }
+    if(!best) return null;
+    const li = nodes[best.i], rj = nodes[best.j];
+    const cA = chainFrom(best.A.prev, li.sp, best.X);
+    const cB = chainFrom(best.B.prev, rj.sp, best.Y);
+    if(!cA || !cB) return null;
+    const meetNode = {
+      name: best.Z, kind: 'meet', meetHere: true,
+      step: { carrier:best.X, mate:best.Y, child:best.Z, kind:best.kind,
+              tie:best.tie, off:best.off, g:best.g },
+      parents: [ chainTree(cA, li.tree, 'spine'), chainTree(cB, rj.tree, 'spine') ]
+    };
+    gens += best.dx + best.dy + 1;
+    nodes = nodes.filter((_, k) => k !== best.i && k !== best.j);
+    nodes.push({ sp: best.Z, tree: meetNode });
+  }
+
+  const last = nodes[0];
+  if(last.sp === target){
+    last.tree.kind = 'root';
+    return { tree: last.tree, gens };
+  }
+  const r = plan(last.sp, target, pool, exactOnly, useCombos);
+  if(!r.chain) return null;
+  return { tree: chainTree(r.chain, last.tree, 'root'), gens: gens + r.chain.length };
+}
+
+/* ---------------- tree rendering ---------------- */
+let TID = 0;
+function renderNode(node, ctx){
+  const k = node.kind;
+  const p = P[node.name];
+  let head = `<span class="twho">${node.name}</span>`;
+  if(k !== 'partner' && p) head += els(node.name);
+  if(p) head += `<span class="rank">rank ${p.rank}</span>`;
+  if(p) head += genderNote(node.name);
+
+  let note = '', alts = '', clickable = false;
+  const s = node.step;
+
+  if(s){
+    if(s.kind === 'combo'){
+      head += `<span class="rank uni">unique combo${s.g ? ' &middot; gender-dependent' : ''}</span>`;
+      note = `<span class="tnote">Fixed pairing &mdash; rank is ignored.</span>`;
+    } else {
+      if(s.tie) head += `<span class="rank warn">tie with ${s.all.filter(x => x !== node.name).join(', ')} &mdash; verify in game</span>`;
+      else if(s.off) head += `<span class="rank warn">rounded ${s.off}</span>`;
+      note = `<span class="tnote">Averages to ${avgOf(s.carrier, s.mate)}.</span>`;
+    }
+    const others = s.alts ? s.alts.filter(a => a !== s.mate) : [];
+    if(others.length){
+      clickable = true;
+      alts = `<span class="alts"><span class="altlabel">${others.length} other partner${others.length > 1 ? 's' : ''} for this hop</span>
+        <span class="pairgrid">${others.map(o => `<span>${s.carrier} + ${o}</span>`).join('')}</span></span>`;
+    }
+  }
+
+  if(k === 'origin')
+    note = `<span class="tnote">Catch this &mdash; it is the only source of <b>${ctx.what}</b> in the plan.</span>`;
+  if(k === 'partner')
+    note = `<span class="tnote">Catch or breed &mdash; no passives needed.</span>`;
+  if(k === 'owned')
+    note = `<span class="tnote">From your box${node.passives && node.passives.length
+      ? `, carrying <b>${node.passives.join(', ')}</b>` : ', no passives'}.</span>`;
+  if(node.meetHere)
+    note = `<span class="tnote">Both lines meet here${s
+      ? (s.kind === 'combo' ? ' &mdash; unique combo, rank ignored.'
+                            : `, averaging to ${avgOf(s.carrier, s.mate)}.`)
+      : '.'} From here up, one Pal carries everything from both sides.</span>`;
+  if(node.merged)
+    note = `<span class="tnote">Same species both sides, so the child is always ${node.name}.</span>`;
+  if(node.pool)
+    note += `<span class="pool">pool of ${node.pool.length}: <b>${node.pool.join(', ')}</b></span>`;
+
+  const tag = clickable ? 'button' : 'div';
+  const attr = clickable ? ' aria-expanded="false"' : '';
+  const card = `<${tag} class="tcard"${attr}><span class="thead">${head}</span>${note}${alts}</${tag}>`;
+
+  const kids = node.parents
+    ? `<div class="tkids">${node.parents.map(c => renderNode(c, ctx)).join('')}</div>`
+    : '';
+  return `<div class="tnode k-${k}">${card}${kids}</div>`;
+}
+
+function renderTree(root, ctx){
+  return `<div class="tree">${renderNode(root, ctx)}</div>`;
+}
+
+function bindGens(){
+  $('out').querySelectorAll('button.tcard').forEach(b => {
+    b.onclick = () => b.setAttribute('aria-expanded', b.getAttribute('aria-expanded') !== 'true');
+  });
+}
+
+/* dots for every rank on the spine, converging on the target */
+function spineBar(ranks, goal){
+  const dots = ranks.map((r, i) =>
+    `<span class="${i === 0 ? 'dot spectral' : (i === ranks.length - 1 ? 'dot' : 'ghost')}"
+      style="left:${pct(r)}%"></span>`).join('');
+  return `<div class="spine"><span class="lbl">rank ladder</span>
+    <span class="gauge"><span class="track"></span>
+      <span class="goal" style="left:${pct(goal)}%"></span>${dots}</span>
+    <span class="scale"><span>30 rarest</span><span>target ${goal}</span><span>3100 commonest</span></span>
+  </div>`;
+}
+
+const treeLegend = extra => `<div class="legend">
+  <span><i style="background:var(--paper)"></i>finished</span>
+  <span><i style="background:var(--amber)"></i>carrier</span>
+  <span><i style="background:var(--violet)"></i>unique combo</span>
+  ${extra ? `<span><i style="background:#6bcb77"></i>from your box</span>` : ''}
+  <span><i style="background:var(--line-soft)"></i>catch</span>
+</div>`;
+
+function runRoster(){
+  const target = $('target').value;
+  const exactOnly = $('exactOnly').checked, useCombos = $('useCombos').checked;
+  const minRank = +$('pool').value;
+  const pool = NAMES.filter(n => P[n].rank >= minRank && !($('noCollab').checked && COLLAB.has(n)))
+                    .sort((a, b) => P[b].rank - P[a].rank);
+  CHAIN_CACHE.clear();
+  $('finals').hidden = true;
+
+  const missing = [];
+  if(!ROSTER.length) missing.push('the Pals in your box');
+  if(!WANTS.length) missing.push('the passives you want');
+  if(!target) missing.push('a target Pal');
+  if(missing.length){ askFor(missing); return; }
+
+  if(P[target].noRecipe){
+    $('verdict').innerHTML = `<b>${target}</b> has no breeding recipe`;
+    $('out').innerHTML = `<div class="empty"><b>Nothing in the shipped data produces this Pal.</b><br>
+      ${target} sits outside the rank formula, no unique combo produces it, and it has no same-species
+      row &mdash; so even a matched pair won't breed true. It's catch-only, and no chain can put passives
+      on it: whatever you catch is what you get.</div>`;
+    return;
+  }
+  if(!P[target].formula && !COMBOS.some(k => k.c === target && k.a !== k.b && useCombos)){
+    $('verdict').innerHTML = `<b>${target}</b> only comes from two of its own kind`;
+    $('out').innerHTML = `<div class="empty"><b>No chain can reach it.</b><br>
+      Neither the rank formula nor any mixed pair produces ${target}. Catch two, then breed the pair and
+      reroll &mdash; the passives you want have to already be on one of the parents.</div>`;
+    return;
+  }
+
+  const r = rosterPlan(ROSTER, target, WANTS, pool, exactOnly, useCombos);
+
+  if(r.fail){
+    $('verdict').innerHTML = 'Not possible with this box';
+    let msg = '';
+    if(r.gaps.length) msg += `<b>Nothing you own can supply ${listJoin(r.gaps, 'or')}.</b><br>
+      Passives only enter a line from a parent that already has one, so you need to catch or breed a Pal
+      carrying ${r.gaps.length > 1 ? 'those' : 'that'} first &mdash; any species will do, the chain moves it.<br>`;
+    if(r.unreachable.length) msg += `<br>No breeding route reaches ${target} from ${listJoin(r.unreachable, 'or')},
+      so ${r.unreachable.length > 1 ? 'those' : 'that'} can't contribute. Try widening the partner pool or
+      allowing unique combos.`;
+    $('out').innerHTML = `<div class="empty">${msg}</div>`;
+    return;
+  }
+
+  const goal = P[target].rank;
+  const g = r.steps.length;
+  $('verdict').innerHTML = `<b>${WANTS.length} passive${WANTS.length > 1 ? 's' : ''}</b> onto ` +
+    `<b>${target}</b> &middot; ${r.total} generation${r.total === 1 ? '' : 's'}`;
+
+  if(r.total === 0){
+    $('out').innerHTML = `<div class="empty"><b>You're already there.</b><br>
+      Your ${target} carries ${listJoin(WANTS, 'and')}. Pair it with a plain ${target} to make more
+      without ever risking the species.</div>`;
+    return;
+  }
+
+  const carried = r.steps.map(s => {
+    const u = [];
+    s.used.forEach(x => x.passives.forEach(p => { if(!u.includes(p)) u.push(p); }));
+    return { wanted: u.filter(p => WANTS.includes(p)), junk: u.filter(p => !WANTS.includes(p)) };
+  });
+
+  const root = joinTrees(r.steps, target, WANTS);
+  let html = treeLegend(true) + renderTree(root, { what: listJoin(WANTS, 'and') });
+
+  const allJunk = [];
+  carried.forEach(c => c.junk.forEach(p => { if(!allJunk.includes(p)) allJunk.push(p); }));
+  const heavy = r.steps
+    .map((s, i) => ({ part:i + 1, load:carried[i].wanted.length, hops:s.chain.n }))
+    .filter(x => x.hops > 0 && x.load > 1)
+    .sort((a, b) => b.load - a.load)[0];
+  let notes = '';
+  if(allJunk.length) notes += `<b>Clean the pool.</b> Your carriers also bring
+    ${listJoin(allJunk, 'and')}, which compete for the same four slots. Breed those Pals against a
+    blank partner first, or expect extra rerolls at every step.<br><br>`;
+  if(heavy) notes += `<b>One branch drags ${heavy.load} passives through ${heavy.hops}
+    hop${heavy.hops === 1 ? '' : 's'}.</b> The generation count is the same either way, but every extra
+    passive in flight cuts the per-egg odds. If that branch stalls, split it: chain each passive
+    separately and merge at the end for ${heavy.load - 1} more
+    generation${heavy.load - 1 === 1 ? '' : 's'} but far better odds per hop.<br><br>`;
+  notes += `<b>Generations, not eggs.</b> Every branch point is one successful hatch. Each needs an
+    unknown number of attempts, since inheritance is a dice roll &mdash; carrier as the male, blank
+    mate, Special Cake.`;
+  html += `<div class="warnbox">${notes}</div>`;
+
+  $('out').innerHTML = html;
+  bindGens();
+}
+
+const MODE_HINT = {
+  trait: 'Innate passives only travel by inheritance, so the chain starts from a Pal that already has one.',
+  pal:   'Add every Pal you could start from &mdash; the tree gets built from whichever is closest.',
+  box:   'List what you own and what you want, and the plan gathers them onto one Pal.'
+};
+
+function askFor(missing){
+  $('finals').hidden = true;
+  $('verdict').innerHTML = 'Nothing to plan yet';
+  $('out').innerHTML = `<div class="empty"><b>Pick ${listJoin(missing, 'and')}.</b><br>
+    ${MODE_HINT[mode]}<br><br>
+    <button class="iobtn" id="egBtn">Load an example</button></div>`;
+  $('egBtn').onclick = loadExample;
+}
+
+function loadExample(){
+  $('target').value = 'Pengullet';
+  if(mode === 'trait'){ $('trait').value = 'Legend'; }
+  if(mode === 'pal'){ ORIGINS = ['Frostallion', 'Necromus']; drawOrigins(); }
+  if(mode === 'box'){
+    ROSTER = [{ species:'Frostallion', passives:['Legend'] },
+              { species:'Pengullet',   passives:['Musclehead','Ferocious'] }];
+    WANTS = ['Legend', 'Musclehead', 'Ferocious'];
+    drawRoster(); drawWants();
+  }
+  run();
+}
+
+function run(){
+  saveState();
+  if(mode === 'box'){ runRoster(); return; }
+  const target = $('target').value;
+  const trait = $('trait').value;
+  const missing = [];
+  if(mode === 'trait' && !trait) missing.push('a passive to carry');
+  if(mode === 'pal' && !ORIGINS.length) missing.push('at least one starting Pal');
+  if(!target) missing.push('a target Pal');
+  if(mode === 'trait') $('traitSources').innerHTML = trait
+    ? `Tier ${TRAITS[trait].tier}. Innate on ` +
+      TRAITS[trait].holders.map(h => `<span class="chip">${h} &middot; ${P[h].rank}</span>`).join('')
+    : '';
+  else $('traitSources').innerHTML = '';
+  if(missing.length){ askFor(missing); return; }
+
+  $('finals').hidden = false;
+  const exactOnly = $('exactOnly').checked;
+  const useCombos = $('useCombos').checked;
+  const minRank = +$('pool').value;
+  const pool = NAMES.filter(n => P[n].rank >= minRank && !($('noCollab').checked && COLLAB.has(n)))
+                    .sort((a, b) => P[b].rank - P[a].rank);
+  const origins = mode === 'trait' ? TRAITS[trait].holders : ORIGINS.slice();
+  const what = mode === 'trait' ? trait
+             : (origins.length === 1 ? `${origins[0]}'s passives` : 'the passive you want moved');
+
+  const dp = directPairs(target, useCombos);
+  $('finals').querySelector('summary').textContent =
+    `Every pair that makes ${target} directly — ${dp.length}`;
+  $('finalPairs').innerHTML = dp.length
+    ? dp.map(s => `<span>${s}</span>`).join('')
+    : `<span>None with the current filters.</span>`;
+
+  if(P[target].noRecipe){
+    $('verdict').innerHTML = `<b>${target}</b> has no breeding recipe`;
+    $('out').innerHTML = `<div class="empty"><b>Nothing in the shipped data produces this Pal.</b><br>
+      ${target} sits outside the rank formula, no unique combo produces it, and it has no same-species
+      row, so even a matched pair won't breed true. It's catch-only &mdash; breeding can't put ${what}
+      on it at all.</div>`;
+    return;
+  }
+
+  if(!dp.length && !P[target].formula){
+    $('verdict').innerHTML = `<b>${target}</b> only comes from two of its own kind`;
+    $('out').innerHTML = `<div class="empty"><b>No chain can reach it.</b><br>
+      The rank formula can't produce ${target} and no mixed pair does either. Catch one, get a second of
+      the opposite gender, then breed the pair and reroll until the passive shows up &mdash; ${what} has to
+      come in from a parent that already has it.</div>`;
+    return;
+  }
+
+  if(mode === 'pal' && origins.length > 1 && $('combineOn').checked){
+    const c = combineOrigins(origins, target, pool, exactOnly, useCombos);
+    if(!c){
+      $('verdict').innerHTML = 'No combined route';
+      $('out').innerHTML = `<div class="empty"><b>Those lines can't be brought together.</b><br>
+        At least one of ${listJoin(origins, 'and')} has no breeding route that meets the others and
+        still reaches ${target}. Widen the partner pool, allow unique combos, or switch off
+        <i>Exact landings only</i> &mdash; or untick <i>Combine them</i> to plan from each separately.</div>`;
+      return;
+    }
+    $('verdict').innerHTML = `Combining <b>${listJoin(origins, 'and')}</b> into ` +
+      `<b>${target}</b> &middot; ${c.gens} generation${c.gens === 1 ? '' : 's'}`;
+    $('out').innerHTML = treeLegend(false) +
+      renderTree(c.tree, { what: 'the passives you want' });
+    bindGens();
+    return;
+  }
+
+  let best = null, bestOrigin = null;
+  const scored = [];
+  for(const o of origins){
+    const r = plan(o, target, pool, exactOnly, useCombos);
+    scored.push({ o, n: r.same ? 0 : (r.chain ? r.chain.length : null) });
+    if(r.same){ best = r; bestOrigin = o; break; }
+    if(r.chain && (!best || best.same || r.chain.length < best.chain.length)){ best = r; bestOrigin = o; }
+  }
+
+  if(!best || (!best.same && !best.chain)){
+    $('verdict').innerHTML = 'No route found';
+    $('out').innerHTML = `<div class="empty"><b>Nothing within eight generations.</b><br>
+      Widen <i>Partners you're willing to catch</i>, allow the collab Pals or unique combos, or switch off
+      <i>Exact landings only</i>. The drawer below lists every pair that makes ${target} directly &mdash; if
+      all of them need a partner your filters exclude, that's the blocker.</div>`;
+    return;
+  }
+
+  if(best.same){
+    $('verdict').innerHTML = `<b>${target}</b> already holds ${what} — no chain needed`;
+    $('out').innerHTML = `<div class="empty"><b>Breed two ${target} together.</b><br>
+      Same-species pairs always produce that species, so you can reroll the other passive slots
+      indefinitely without ever losing ${target}.</div>`;
+    return;
+  }
+
+  const n = best.chain.length, goal = P[target].rank;
+  const uniques = best.chain.filter(s => s.kind === 'combo').length;
+  $('verdict').innerHTML = `Carrying <b>${what}</b> from <b>${bestOrigin}</b> to <b>${target}</b> · ` +
+    `${n} generation${n > 1 ? 's' : ''}${uniques ? ` &middot; ${uniques} unique combo${uniques > 1 ? 's' : ''}` : ''}`;
+
+  const spine = [P[bestOrigin].rank].concat(best.chain.map(s => P[s.child].rank));
+  const root = chainTree(best.chain,
+    { name: bestOrigin, kind: 'origin' }, 'root');
+
+  let html = '';
+  if(scored.length > 1){
+    const rows = scored.slice().sort((a, b) =>
+      (a.n === null) - (b.n === null) || a.n - b.n).map(x =>
+      `<span>${x.o} &mdash; ${x.n === null ? 'no route' : x.n + ' gen'}</span>`).join('');
+    html += `<div class="spine"><span class="lbl">starting Pals compared</span>
+      <span class="pairgrid" style="margin-top:8px">${rows}</span></div>`;
+  }
+  html += spineBar(spine, goal) + treeLegend(false) +
+    renderTree(root, { what: mode === 'trait' ? what : `${bestOrigin}'s passives` });
+
+  $('out').innerHTML = html;
+  bindGens();
+}
+
+['trait','target','pool','useCombos','noCollab','exactOnly','combineOn']
+  .forEach(id => $(id).onchange = run);
+$('combineOn').addEventListener('change', drawOrigins);
+$('go').onclick = run;
+
+/* ---- persistence: on by default, incognito opts out ----
+   The incognito choice itself lives in sessionStorage, so it survives a reload
+   in this tab but leaves nothing behind once the tab is closed.                */
+const LS_KEY = 'palworld-breeding-calculator';
+const SS_KEY = LS_KEY + ':incognito';
+let INCOGNITO = false;
+
+const LS_OK = (() => {
+  try{ localStorage.setItem(LS_KEY + ':t', '1'); localStorage.removeItem(LS_KEY + ':t'); return true; }
+  catch(e){ return false; }
+})();
+
+function privacyNote(){
+  $('privacyNote').textContent = !LS_OK
+    ? "This browser won't allow local storage here, so nothing is being saved either way."
+    : (INCOGNITO
+        ? 'Nothing is being written, and anything saved before has been deleted. The setting itself lasts until you close the tab.'
+        : 'Your setup is kept on this device, so it will still be here next visit. Nothing leaves the browser.');
+}
+
+function saveState(){
+  if(INCOGNITO || !LS_OK) return;
+  try{
+    localStorage.setItem(LS_KEY, JSON.stringify({
+      v:1, mode, trait:$('trait').value, target:$('target').value,
+      origins:ORIGINS, roster:ROSTER, wants:WANTS,
+      combine:$('combineOn').checked, pool:$('pool').value,
+      useCombos:$('useCombos').checked, noCollab:$('noCollab').checked,
+      exactOnly:$('exactOnly').checked
+    }));
+  }catch(e){}
+}
+
+function clearState(){ try{ localStorage.removeItem(LS_KEY); }catch(e){} }
+
+function restoreState(){
+  if(!LS_OK) return false;
+  try{ if(sessionStorage.getItem(SS_KEY) === '1') INCOGNITO = true; }catch(e){}
+  $('incognitoOn').checked = INCOGNITO;
+  if(INCOGNITO){ clearState(); return false; }
+
+  let d;
+  try{ d = JSON.parse(localStorage.getItem(LS_KEY) || 'null'); }catch(e){ return false; }
+  if(!d) return false;
+  if(d.trait && TRAITS[d.trait]) $('trait').value = d.trait;
+  if(d.target && P[d.target]) $('target').value = d.target;
+  if(d.pool) $('pool').value = d.pool;
+  ORIGINS = (Array.isArray(d.origins) ? d.origins : []).filter(n => P[n]);
+  WANTS = (Array.isArray(d.wants) ? d.wants : []).filter(p => PASSIVES[p]).slice(0, 4);
+  ROSTER = (Array.isArray(d.roster) ? d.roster : []).filter(r => r && P[r.species])
+    .map(r => ({ species:r.species,
+                 passives:(Array.isArray(r.passives) ? r.passives : [])
+                   .filter(p => PASSIVES[p]).slice(0, 4) }));
+  ['combine:combineOn','useCombos:useCombos','noCollab:noCollab','exactOnly:exactOnly']
+    .forEach(pair => { const [k, id] = pair.split(':');
+      if(typeof d[k] === 'boolean') $(id).checked = d[k]; });
+  return d.mode === 'pal' || d.mode === 'box' ? d.mode : 'trait';
+}
+
+$('incognitoOn').onchange = () => {
+  INCOGNITO = $('incognitoOn').checked;
+  try{ INCOGNITO ? sessionStorage.setItem(SS_KEY, '1') : sessionStorage.removeItem(SS_KEY); }catch(e){}
+  if(INCOGNITO) clearState(); else saveState();
+  privacyNote();
+};
+if(!LS_OK) $('incognitoOn').disabled = true;
+const restoredMode = restoreState();
+privacyNote();
+drawOrigins();
+drawRoster();
+drawWants();
+setMode(restoredMode || 'trait');
+run();
+</script>
+</body>
+</html>
