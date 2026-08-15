@@ -1,0 +1,698 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dialect Analysis - William Chen</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;450;600&display=swap" rel="stylesheet">
+
+<style>
+  :root{
+    --bg:#0b0b0d;
+    --panel:#141417;
+    --panel-2:#1b1b1f;
+    --rule:#2a2a30;
+    --dim:#6e6e78;
+    --slate:#9a9aa4;
+    --fg:#f2f2f4;
+
+    --bar-a:#f2f2f4;
+    --bar-b:#4e4e57;
+
+    --mono:"IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+    --sans:"IBM Plex Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    --measure:34rem;
+  }
+
+  *,*::before,*::after{box-sizing:border-box}
+  html{-webkit-text-size-adjust:100%}
+
+  body{
+    margin:0;
+    background:var(--bg);
+    color:var(--fg);
+    font-family:var(--sans);
+    font-size:17px;
+    line-height:1.65;
+    -webkit-font-smoothing:antialiased;
+  }
+
+  .wrap{max-width:46rem;margin:0 auto;padding:0 1.5rem 6rem}
+
+  .eyebrow{
+    font-family:var(--mono);
+    font-size:.7rem;font-weight:500;
+    letter-spacing:.14em;text-transform:uppercase;
+    color:var(--dim);margin:0 0 .9rem;
+  }
+
+  h1{font-size:clamp(2rem,6vw,3rem);font-weight:600;line-height:1.1;letter-spacing:-.02em;margin:0 0 1.1rem}
+  h2{font-size:1.3rem;font-weight:600;letter-spacing:-.01em;line-height:1.3;margin:0 0 1rem}
+  h3{font-family:var(--mono);font-size:.82rem;font-weight:600;margin:0 0 .5rem;color:var(--fg)}
+
+  p{margin:0 0 1.1rem;max-width:var(--measure)}
+  p:last-child{margin-bottom:0}
+
+  a{color:var(--fg);text-decoration:underline;text-underline-offset:.18em;text-decoration-thickness:1px}
+  a:hover{color:var(--slate)}
+  a:focus-visible,summary:focus-visible{outline:2px solid var(--fg);outline-offset:3px;border-radius:2px}
+  strong{font-weight:600}
+
+  .lede{font-size:1.16rem;line-height:1.55;color:var(--slate);max-width:33rem}
+  .note{font-size:.88rem;line-height:1.6;color:var(--dim);max-width:var(--measure)}
+
+  header.masthead{padding:4.5rem 0 2.5rem;border-bottom:1px solid var(--rule)}
+  .byline{font-family:var(--mono);font-size:.74rem;color:var(--dim);margin-top:1.6rem}
+
+  .split{background:var(--panel);border:1px solid var(--rule);padding:1.5rem 1.5rem 1.35rem;margin:0 0 1.25rem}
+
+  .split-head{
+    display:flex;justify-content:space-between;align-items:baseline;gap:1rem;
+    margin-bottom:1.15rem;padding-bottom:.85rem;border-bottom:1px solid var(--rule);
+  }
+  .split-title{font-size:.98rem;font-weight:600;margin:0}
+  .split-meta{font-family:var(--mono);font-size:.72rem;color:var(--dim);white-space:nowrap}
+
+  .row{display:flex;align-items:center;gap:.85rem;margin-bottom:.6rem}
+  .row:last-child{margin-bottom:0}
+
+  .row-label{
+    flex:0 0 5.2rem;font-family:var(--mono);font-size:.74rem;font-weight:500;
+    color:var(--slate);letter-spacing:.02em;
+  }
+  .track{
+    flex:1 1 auto;min-width:0;display:block;position:relative;
+    height:1.45rem;background:var(--panel-2);border:1px solid var(--rule);overflow:hidden;
+  }
+  .bar{
+    position:absolute;top:0;left:0;bottom:0;
+    animation:reveal .65s cubic-bezier(.22,.61,.36,1) both;
+  }
+  @keyframes reveal{from{clip-path:inset(0 100% 0 0)}to{clip-path:inset(0 0 0 0)}}
+  .bar.a{background:var(--bar-a)}
+  .bar.b{background:var(--bar-b)}
+
+  .row-value{
+    flex:0 0 4.4rem;font-family:var(--mono);font-size:.86rem;font-weight:500;
+    text-align:right;font-variant-numeric:tabular-nums;
+  }
+
+  .gap-line{
+    display:flex;justify-content:space-between;align-items:baseline;gap:1rem;
+    margin-top:1.1rem;padding-top:.85rem;border-top:1px solid var(--rule);
+    font-family:var(--mono);font-size:.78rem;color:var(--slate);
+  }
+  .gap-value{font-weight:600;font-variant-numeric:tabular-nums;color:var(--fg)}
+
+  .summary{margin:2.75rem 0 0;background:var(--panel);border:1px solid var(--rule)}
+  .summary-head{
+    font-family:var(--mono);font-size:.7rem;font-weight:600;
+    letter-spacing:.14em;text-transform:uppercase;color:var(--dim);
+    padding:1.1rem 1.5rem .9rem;border-bottom:1px solid var(--rule);margin:0;max-width:none;
+  }
+  .summary-body{padding:1.35rem 1.5rem}
+  .sum-row{display:flex;gap:1.25rem;margin-bottom:.85rem;align-items:baseline}
+  .sum-row:last-child{margin-bottom:0}
+  .sum-key{
+    flex:0 0 5.2rem;font-family:var(--mono);font-size:.72rem;font-weight:500;
+    letter-spacing:.04em;text-transform:uppercase;color:var(--dim);
+  }
+  .sum-val{flex:1 1 auto;margin:0;max-width:none;font-size:.97rem;line-height:1.55;color:var(--fg)}
+  .sum-val.muted{color:var(--slate)}
+
+
+  .contrast{
+    display:flex;flex-wrap:wrap;gap:1.25rem;
+    background:var(--panel);border:1px solid var(--rule);padding:1.5rem;margin-bottom:1.25rem;
+  }
+  .contrast-half{flex:1 1 12rem}
+  .contrast-num{
+    font-family:var(--mono);font-size:2.15rem;font-weight:500;line-height:1.05;
+    letter-spacing:-.02em;font-variant-numeric:tabular-nums;margin:0 0 .3rem;
+  }
+  .contrast-num.loud{color:var(--fg)}
+  .contrast-num.quiet{color:var(--bar-b)}
+  .contrast-cap{font-family:var(--mono);font-size:.72rem;color:var(--dim);margin:0;max-width:none}
+
+  .flip-row{display:flex;align-items:center;gap:.85rem;margin-bottom:.7rem}
+  .flip-row:last-child{margin-bottom:0}
+  .flip-label{flex:0 0 11rem;font-size:.85rem;color:var(--slate);line-height:1.35}
+  .flip-count{
+    flex:0 0 3rem;font-family:var(--mono);font-size:1.05rem;font-weight:600;
+    text-align:right;font-variant-numeric:tabular-nums;
+  }
+
+  .runs{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:.78rem}
+  .runs th,.runs td{
+    text-align:right;padding:.6rem .5rem;border-bottom:1px solid var(--rule);
+    font-variant-numeric:tabular-nums;
+  }
+  .runs th{color:var(--dim);font-weight:500;letter-spacing:.02em}
+  .runs th:first-child,.runs td:first-child{text-align:left}
+  .runs tr:last-child td{border-bottom:0}
+  .runs td{color:var(--slate)}
+  .runs td.hero{color:var(--fg);font-weight:600}
+  .runs caption{
+    caption-side:bottom;text-align:left;padding-top:.9rem;
+    font-family:var(--sans);font-size:.85rem;color:var(--dim);line-height:1.55;
+  }
+
+  section,.summary{scroll-margin-top:2rem}
+  html{scroll-behavior:smooth}
+  @media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
+
+  .toc{display:none}
+  @media (min-width:1240px){
+    .toc{
+      display:block;
+      position:fixed;
+      top:50%;
+      left:2.5rem;
+      width:10.5rem;
+      transform:translateY(-50%);
+      border-left:1px solid var(--rule);
+      padding:.15rem 0;
+    }
+    .toc a{
+      display:block;
+      font-family:var(--mono);
+      font-size:.7rem;
+      line-height:1.35;
+      letter-spacing:.02em;
+      color:var(--dim);
+      text-decoration:none;
+      padding:.42rem 0 .42rem .85rem;
+      margin-left:-1px;
+      border-left:1px solid transparent;
+      transition:color .18s ease,border-color .18s ease;
+    }
+    .toc a:hover{color:var(--slate)}
+    .toc a[aria-current="true"]{color:var(--fg);border-left-color:var(--fg)}
+  }
+  @media (prefers-reduced-motion:reduce){.toc a{transition:none}}
+
+  section{padding:2.75rem 0;border-bottom:1px solid var(--rule)}
+  section:last-of-type{border-bottom:0}
+
+  .cols{display:flex;flex-wrap:wrap;gap:1.25rem;margin-top:.35rem}
+  .col{flex:1 1 15rem;background:var(--panel);border:1px solid var(--rule);padding:1.25rem}
+  .col p{font-size:.93rem;margin-bottom:0;max-width:none;color:var(--slate)}
+  .col h3{color:var(--fg)}
+
+  ul{margin:0 0 1.1rem;padding-left:1.1rem;max-width:var(--measure)}
+  li{margin-bottom:.5rem}
+  li:last-child{margin-bottom:0}
+  li::marker{color:var(--bar-b)}
+
+  .pair{background:var(--panel);border:1px solid var(--rule);padding:1.2rem 1.35rem;margin-top:.35rem}
+  .pair-line{margin-bottom:.9rem}
+  .pair-line:last-child{margin-bottom:0}
+  .pair-tag{
+    font-family:var(--mono);font-size:.68rem;letter-spacing:.1em;text-transform:uppercase;
+    color:var(--dim);display:block;margin-bottom:.25rem;
+  }
+  .pair-text{font-size:.95rem;line-height:1.55;color:var(--slate);margin:0;max-width:none}
+  .pair-text.empty{color:var(--bar-b);font-family:var(--mono);font-size:.82rem}
+
+  pre{
+    background:var(--panel);border:1px solid var(--rule);padding:1.1rem 1.25rem;
+    overflow-x:auto;font-family:var(--mono);font-size:.78rem;line-height:1.7;
+    margin:0 0 1.1rem;color:var(--slate);
+  }
+  code{font-family:var(--mono);font-size:.88em}
+
+  details{border-top:1px solid var(--rule);padding-top:1rem;margin-top:1.5rem}
+  summary{cursor:pointer;font-family:var(--mono);font-size:.78rem;color:var(--dim);list-style:none}
+  summary::-webkit-details-marker{display:none}
+  summary::before{content:"+ ";color:var(--bar-b)}
+  details[open] summary::before{content:"\2212 "}
+  details[open] summary{margin-bottom:1rem;color:var(--fg)}
+
+  footer{padding:2.5rem 0 0;font-family:var(--mono);font-size:.74rem;line-height:1.9;color:var(--dim)}
+
+  @media (max-width:620px){
+    body{font-size:16px}
+    .row-label{flex-basis:4.4rem}
+    .row-value{flex-basis:3.8rem}
+    .flip-row{flex-wrap:wrap;gap:.4rem}
+    .flip-label{flex:1 1 100%}
+    header.masthead{padding-top:3rem}
+  }
+
+  @media (prefers-reduced-motion:reduce){.bar{animation:none}}
+</style>
+</head>
+<body>
+<nav class="toc" aria-label="Sections">
+  <a href="#summary">Summary</a>
+  <a href="#test">What I tested</a>
+  <a href="#data">The sentences</a>
+  <a href="#credit">What I built</a>
+  <a href="#result">Result</a>
+  <a href="#flips">Opposite verdicts</a>
+  <a href="#average">A misleading average</a>
+  <a href="#objection">The objection</a>
+  <a href="#limits">Limits</a>
+  <a href="#conclusion">What I take from it</a>
+</nav>
+
+<div class="wrap">
+
+  <header class="masthead">
+    <p class="eyebrow">Vocation in Action &nbsp;/&nbsp; CORE 4929</p>
+    <h1>Dialect Analysis</h1>
+    <p class="lede">
+      I wrote a short program that tests whether a widely used piece of language
+      software rates the same sentence differently depending on which dialect of
+      English it is written in.
+    </p>
+    <p class="byline">William &nbsp;&middot;&nbsp; Computer Science</p>
+  </header>
+
+  <div class="summary" id="summary">
+    <p class="summary-head">Summary</p>
+    <div class="summary-body">
+      <div class="sum-row">
+        <span class="sum-key">Question</span>
+        <p class="sum-val">Does a widely used piece of language software judge the same statement differently depending on which dialect of English it is written in?</p>
+      </div>
+      <div class="sum-row">
+        <span class="sum-key">Data</span>
+        <p class="sum-val muted">2,019 published sentence pairs from Groenwold et al. (2020). Each pair says the same thing twice, once in African American English and once in standard English.</p>
+      </div>
+      <div class="sum-row">
+        <span class="sum-key">Method</span>
+        <p class="sum-val muted">Send both versions of every pair through the same publicly available sentiment classifier, then report the results separately for each dialect instead of as one combined figure.</p>
+      </div>
+      <div class="sum-row">
+        <span class="sum-key">Finding</span>
+        <p class="sum-val" id="sum-finding"></p>
+      </div>
+    </div>
+  </div>
+
+  <section id="test">
+    <p class="eyebrow">What I tested</p>
+    <h2>A program that decides whether writing sounds positive or negative</h2>
+    <p>
+      Sentiment classifiers are ordinary and everywhere. They sit behind systems
+      that flag social media posts for review, sort customer complaints, screen
+      job applications, and score student essays. You give one a sentence and it
+      returns a judgement, positive or negative, along with how confident it is.
+    </p>
+    <p>
+      I tested whether that judgement changes when the same thing is said in
+      African American English rather than in the standard written English the
+      software was mostly trained on.
+    </p>
+    <p>
+      This matters because African American English is not broken English. It is
+      a dialect with consistent rules that linguists have documented for decades.
+      If a program rates it lower, it has not found mistakes. It has quietly
+      decided that one way of speaking is the correct one.
+    </p>
+  </section>
+
+  <section id="data">
+    <p class="eyebrow">The sentences</p>
+    <h2>Why I did not write the test data myself</h2>
+    <p>
+      I am not a speaker of this dialect. Anything I invented would have been an
+      imitation, and if the software rated my imitation badly I would have
+      learned nothing except that my imitation reads as fake.
+    </p>
+    <p>
+      So I used a published set of 2,019 sentence pairs from a 2020 research
+      paper by Groenwold and colleagues. Each pair says the same thing twice. One
+      version is a real post written by a real person. The other was written by
+      human annotators in standard English.
+    </p>
+    <p>
+      This brings up a limitation. I would not be able to do this project alone,
+      I had to use work done by another group of people before my tests were
+      even possible.
+    </p>
+
+    <div class="pair">
+      <div class="pair-line">
+        <span class="pair-tag">African American English</span>
+        <p class="pair-text">Boy you can say anything you wanna I don&rsquo;t give a shit, noone else can have ya</p>
+      </div>
+      <div class="pair-line">
+        <span class="pair-tag">Standard English</span>
+        <p class="pair-text">You can say anything you want to, I don&rsquo;t care, noone else can have you</p>
+      </div>
+    </div>
+    <p class="note" style="margin-top:.9rem">
+      This pair also shows a problem with my own data. The standard version turns
+      &ldquo;I don&rsquo;t give a shit&rdquo; into &ldquo;I don&rsquo;t care,&rdquo; which is milder. Rewriting
+      something in plain words tends to soften how strongly it is expressed, so
+      some of the difference I measure may come from the translating rather than
+      from the dialect.
+    </p>
+  </section>
+
+  <section id="credit">
+    <p class="eyebrow">Credit where it is due</p>
+    <h2>What I borrowed and what I built</h2>
+    <div class="cols">
+      <div class="col">
+        <h3>Not mine</h3>
+        <p>
+          The classifier is an off-the-shelf model that anyone can download in
+          one line. I did not train it or write it. That is deliberate. I wanted
+          to test a well documented thing a working developer would actually use, 
+          not something that I come up with on the spot.
+        </p>
+      </div>
+      <div class="col">
+        <h3>Mine</h3>
+        <p>
+          Pairing the sentences, checking they line up, running both sides,
+          reporting the outcome separately for each dialect instead of as one
+          figure, and testing whether the difference could be chance.
+        </p>
+      </div>
+    </div>
+    <p style="margin-top:1.25rem">
+      This division is part of the argument. While the recognition is always available,
+      the comparison and tests were not.
+    </p>
+
+    <details>
+      <summary>The part that does the actual comparison</summary>
+<pre><code>for aae_sentence, standard_sentence in pairs:
+    a = classifier(aae_sentence)
+    b = classifier(standard_sentence)
+    difference.append(a.positive_score - b.positive_score)</code></pre>
+    </details>
+  </section>
+
+  <section id="result">
+    <p class="eyebrow">Result</p>
+    <h2>The same number, reported twice</h2>
+    <p>
+      Software like this normally reports a single accuracy figure, averaged over
+      everyone it was tested on. However, that does not work for my goal, 
+      so I ran it once on each dialect separately to be able to get the difference.
+    </p>
+
+    <div class="split" id="split-negative">
+      <div class="split-head">
+        <p class="split-title">Sentences rated negative</p>
+        <span class="split-meta" data-slot="pairs"></span>
+      </div>
+      <div data-rows></div>
+      <div class="gap-line">
+        <span>Difference</span>
+        <span class="gap-value" data-slot="gap"></span>
+      </div>
+    </div>
+
+    <p class="note" id="p-line"></p>
+  </section>
+
+  <section id="flips">
+    <p class="eyebrow">The clearest finding</p>
+    <h2>Same meaning, opposite verdicts</h2>
+    <p>
+      In some pairs the two versions were given different labels outright. One
+      was called negative and the other was not, even though they say the same
+      thing. While that happened to both side, it is not even at all.
+    </p>
+
+    <div class="split" id="split-flips">
+      <div class="split-head">
+        <p class="split-title">Pairs where only one side was called negative</p>
+        <span class="split-meta" data-slot="flip-share"></span>
+      </div>
+      <div data-flip-rows></div>
+      <div class="gap-line">
+        <span>Imbalance</span>
+        <span class="gap-value" data-slot="flip-ratio"></span>
+      </div>
+    </div>
+
+    <p id="flip-line"></p>
+  </section>
+
+  <section id="average">
+    <p class="eyebrow">Where my own average misleads</p>
+    <h2>The number I would have reported hides what it is made of</h2>
+
+    <div class="contrast">
+      <div class="contrast-half">
+        <p class="contrast-num loud" data-slot="mean"></p>
+        <p class="contrast-cap">Average change across all pairs</p>
+      </div>
+      <div class="contrast-half">
+        <p class="contrast-num quiet" data-slot="median"></p>
+        <p class="contrast-cap">Change for the middle pair</p>
+      </div>
+    </div>
+
+    <p id="skew-line"></p>
+    <p>
+      If I had published only the average, I would have implied that the software
+      treats this dialect worse across the board. It does not. Most sentences are
+      barely affected and a minority are hit hard. That is a different problem
+      than what I expected, but it might be even worse, as it can stay hidden until
+      you get hit by it. 
+    </p>
+  </section>
+
+  <section id="objection">
+    <p class="eyebrow">The obvious objection</p>
+    <h2>Is it just swearing?</h2>
+    <p>
+      The most reasonable challenge to all of this is that the posts contain
+      words any program would rate as negative, so I might be measuring
+      vocabulary rather than dialect. So I ran it again with every pair
+      containing two frequently occurring words removed, one of them a racial
+      slur.
+    </p>
+
+    <table class="runs">
+      <caption id="runs-caption"></caption>
+      <thead>
+        <tr>
+          <th scope="col">Run</th>
+          <th scope="col">Pairs</th>
+          <th scope="col">Gap</th>
+          <th scope="col">Flip imbalance</th>
+        </tr>
+      </thead>
+      <tbody data-runs></tbody>
+    </table>
+
+    <p style="margin-top:1.4rem" id="robust-line"></p>
+    <p class="note" id="small-run-line"></p>
+  </section>
+
+  <section id="limits">
+    <p class="eyebrow">Limits</p>
+    <h2>What these numbers do not say</h2>
+    <p>
+      My whole argument is that people publish figures without saying what those
+      figures hide. It would be strange to do that with my own.
+    </p>
+    <ul>
+      <li>The posts date from around 2013. That might not be how anybody writes now.</li>
+      <li>The standard English versions were written by annotators. Rewriting something in plain prose tends to flatten how strongly it is expressed, so part of the gap may come from the act of translating rather than from the dialect itself.</li>
+      <li>This test is only with one program, a different program might have different results.</li>
+      <li>The two words I removed are not the only loaded vocabulary in the data. A longer list would test this harder.</li>
+      <li>A very small p-value means a pattern this consistent is unlikely to be chance. It says nothing about whether the size of it matters.</li>
+    </ul>
+  </section>
+
+  <section id="conclusion">
+    <p class="eyebrow">What I take from it</p>
+    <h2>My field solved a problem shaped like this once already</h2>
+    <p>
+      Accessibility, meaning whether software works for people with disabilities,
+      did not improve because developers became kinder. It improved because it
+      stopped being a matter of conscience and became a matter of process. There
+      is an agreed standard, a tool that checks automatically, a required step
+      before code ships, and legal consequences for ignoring it.
+    </p>
+    <p>
+      None of that exists for the question I asked here. There is no standard
+      defining what counts as passing, no tool that runs by default, and no cost
+      at all to never checking. The check itself took about sixty lines.
+    </p>
+    <p>
+      What I can do about this might not that I will be a better person about this, 
+      but that I will be aware of and report results by groups when I build anything
+      that scores people. Such as, asking who is missing from the test data, and
+      getting someone else with different ideas to check it before shipping anything
+      out.
+    </p>
+  </section>
+
+  <footer>
+    Groenwold et al., &ldquo;Investigating African-American Vernacular English in
+    Transformer-Based Text Generation,&rdquo; EMNLP 2020.<br>
+    Classifier: DistilBERT fine-tuned on SST-2.<br>
+  </footer>
+
+</div>
+
+<script>
+/* =========================================================================
+   THE NUMBERS
+   ========================================================================= */
+
+const RUNS = [
+  { key:"trial", label:"Trial run",
+    pairs:50,   aaeNeg:0.820, saeNeg:0.680,
+    meanDelta:-0.1112, medianDelta:-0.0021,
+    flipAae:8,   flipSae:1,  p:6.78e-2 },
+
+  { key:"full", label:"Full run",
+    pairs:2000, aaeNeg:0.749, saeNeg:0.625,
+    meanDelta:-0.1171, medianDelta:-0.0008,
+    flipAae:322, flipSae:75, p:4.33e-40 },
+
+  { key:"filtered", label:"Two words removed",
+    pairs:1862, aaeNeg:0.737, saeNeg:0.621,
+    meanDelta:-0.1112, medianDelta:-0.0008,
+    flipAae:292, flipSae:75, p:3.27e-35 }
+];
+
+const HEADLINE = "full";   // which run the top of the page reports
+
+/* ---- rendering ---- */
+
+const R     = RUNS.find(r => r.key === HEADLINE);
+const FILT  = RUNS.find(r => r.key === "filtered");
+const SMALL = RUNS.find(r => r.key === "trial");
+
+const pct    = v => (v * 100).toFixed(1) + "%";
+const signed = v => (v >= 0 ? "+" : "") + (v * 100).toFixed(1) + "%";
+const comma  = n => String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+const set    = (sel, txt) => { const el = document.querySelector(sel); if (el) el.textContent = txt; };
+
+/* 0. summary panel */
+(function () {
+  const gap   = R.aaeNeg - R.saeNeg;
+  const ratio = (R.flipAae / R.flipSae).toFixed(1);
+  const kept  = Math.round(((FILT.aaeNeg - FILT.saeNeg) / gap) * 100);
+
+  set("#sum-finding",
+    "It does. Across " + comma(R.pairs) + " pairs it called the African American English version "
+    + "negative " + (gap * 100).toFixed(1) + " points more often than its standard English twin, and "
+    + "where the two got opposite verdicts it went against the dialect version " + ratio
+    + " times more often. Roughly " + kept + " percent of the gap remained after removing the pairs "
+    + "containing the two most loaded words, so this is not mainly about vocabulary.");
+})();
+
+/* 1. headline split */
+(function () {
+  const rows = [
+    { label:"AAE",      tone:"a", value:R.aaeNeg },
+    { label:"Standard", tone:"b", value:R.saeNeg }
+  ];
+  const peak = Math.max(rows[0].value, rows[1].value);
+  document.querySelector("#split-negative [data-rows]").innerHTML = rows.map(r => `
+    <div class="row">
+      <span class="row-label">${r.label}</span>
+      <span class="track"><span class="bar ${r.tone}" style="width:${((r.value / peak) * 100).toFixed(2)}%"></span></span>
+      <span class="row-value">${pct(r.value)}</span>
+    </div>`).join("");
+
+  set('[data-slot="pairs"]', comma(R.pairs) + " pairs");
+  set('[data-slot="gap"]', signed(R.aaeNeg - R.saeNeg));
+  set("#p-line",
+    "A signed-rank test puts the chance of a pattern this consistent arising by luck at about "
+    + R.p.toExponential(1) + ". That says the difference is real. It does not say it is large.");
+})();
+
+/* 2. flipped labels */
+(function () {
+  const rows = [
+    { label:"African American English called negative, standard version not", n:R.flipAae, tone:"a" },
+    { label:"Standard version called negative, African American English not", n:R.flipSae, tone:"b" }
+  ];
+  const peak = Math.max(rows[0].n, rows[1].n);
+  document.querySelector("#split-flips [data-flip-rows]").innerHTML = rows.map(r => `
+    <div class="flip-row">
+      <span class="flip-label">${r.label}</span>
+      <span class="track"><span class="bar ${r.tone}" style="width:${((r.n / peak) * 100).toFixed(2)}%"></span></span>
+      <span class="flip-count">${comma(r.n)}</span>
+    </div>`).join("");
+
+  const ratio = (R.flipAae / R.flipSae).toFixed(1);
+  set('[data-slot="flip-share"]', pct((R.flipAae + R.flipSae) / R.pairs) + " of all pairs");
+  set('[data-slot="flip-ratio"]', ratio + " to 1");
+  set("#flip-line",
+    "It went against the African American English version " + ratio + " times more often than the "
+    + "other way round. This is the finding I trust most, because a flipped label is not a rounding "
+    + "difference. It is the software reaching an opposite conclusion about the same statement.");
+})();
+
+/* 3. average against typical */
+(function () {
+  set('[data-slot="mean"]',   R.meanDelta.toFixed(4));
+  set('[data-slot="median"]', R.medianDelta.toFixed(4));
+  set("#skew-line",
+    "These describe the same " + comma(R.pairs) + " pairs. The average is about "
+    + Math.round(R.meanDelta / R.medianDelta) + " times the size of the typical case, which means "
+    + "it is driven by a minority of sentences rather than by a small shift affecting everything.");
+})();
+
+/* 4. the three runs */
+(function () {
+  document.querySelector("[data-runs]").innerHTML = RUNS.map(r => {
+    const hero = r.key === "filtered" ? " class=\"hero\"" : "";
+    return `<tr>
+      <td>${r.label}</td>
+      <td>${comma(r.pairs)}</td>
+      <td${hero}>${signed(r.aaeNeg - r.saeNeg)}</td>
+      <td${hero}>${(r.flipAae / r.flipSae).toFixed(1)} to 1</td>
+    </tr>`;
+  }).join("");
+
+  const retained = (FILT.aaeNeg - FILT.saeNeg) / (R.aaeNeg - R.saeNeg);
+  set("#runs-caption",
+    "Removing those two words dropped " + comma(R.pairs - FILT.pairs) + " pairs from the test.");
+  set("#robust-line",
+    "The gap barely moved. About " + Math.round(retained * 100) + " percent of it survived, and the "
+    + "imbalance in flipped labels stayed close to " + (FILT.flipAae / FILT.flipSae).toFixed(1)
+    + " to 1. So this is not mainly about a couple of words. Something about how the sentences are "
+    + "built is carrying most of it.");
+  set("#small-run-line",
+    "Worth noting the trial run. At " + SMALL.pairs + " pairs the difference pointed the same way, "
+    + "but the test returned p = " + SMALL.p.toFixed(3) + ", which does not clear the usual "
+    + "threshold. Same effect, not enough evidence yet. I have kept it here because stopping at "
+    + "that point would have been reasonable and would have given the wrong answer.");
+})();
+
+/* 5. sidebar: mark the section currently in view */
+(function () {
+  const links = Array.prototype.slice.call(document.querySelectorAll(".toc a"));
+  if (!links.length || !("IntersectionObserver" in window)) return;
+
+  const targets = links
+    .map(a => document.querySelector(a.getAttribute("href")))
+    .filter(Boolean);
+
+  const mark = id => links.forEach(a =>
+    a.setAttribute("aria-current", a.getAttribute("href") === "#" + id ? "true" : "false"));
+
+  const seen = new Map();
+  const io = new IntersectionObserver(entries => {
+    entries.forEach(e => seen.set(e.target.id, e.isIntersecting ? e.intersectionRatio : 0));
+    let best = null, top = 0;
+    seen.forEach((ratio, id) => { if (ratio > top) { top = ratio; best = id; } });
+    if (best) mark(best);
+  }, { rootMargin: "-15% 0px -55% 0px", threshold: [0, 0.25, 0.5, 1] });
+
+  targets.forEach(t => io.observe(t));
+  mark(targets[0].id);
+})();
+</script>
+</body>
+</html>
