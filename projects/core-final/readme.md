@@ -1,0 +1,1 @@
+Code and Website for CORE 4929 Final Project where I research into some form of systemic racism in my field
